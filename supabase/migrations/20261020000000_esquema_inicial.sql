@@ -1,4 +1,4 @@
--- Migración inicial extraída del proyecto remoto vzankvxsjxerlyvffipo (Orby)
+-- Migración inicial del esquema de base de datos de Orby
 
 -- 1. Catálogos y estados
 CREATE TABLE IF NOT EXISTS "public"."estado_cafeteria" (
