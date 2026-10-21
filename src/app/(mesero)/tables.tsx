@@ -39,9 +39,9 @@ export default function MeseroTablesScreen() {
   };
 
   const obtenerColorTextoEstado = (estado: EstadoMesa) => {
-    if (estado === 'ocupada') return '#E11D48'; // Rojo pág. 7
-    if (estado === 'apartada') return '#D97706'; // Amarillo pág. 7
-    return '#1A1D1C'; // Libre
+    if (estado === 'ocupada') return colores.danger; // Rojo pág. 7
+    if (estado === 'apartada') return colores.warning; // Amarillo pág. 7
+    return colores.text; // Libre
   };
 
   const capitalizar = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
@@ -66,7 +66,7 @@ export default function MeseroTablesScreen() {
                 style={[
                   estilos.tarjetaMesa,
                   {
-                    backgroundColor: '#DDE9E4',
+                    backgroundColor: colores.primary_soft,
                   },
                 ]}
               >
@@ -90,12 +90,12 @@ export default function MeseroTablesScreen() {
         onRequestClose={() => setMesaParaModificar(null)}
       >
         <TouchableOpacity
-          style={estilos.modalOverlay}
+          style={[estilos.modalOverlay, { backgroundColor: colores.overlay }]}
           activeOpacity={1}
           onPress={() => setMesaParaModificar(null)}
         >
-          <View style={estilos.modalPopup}>
-            <Text style={estilos.modalTitulo}>
+          <View style={[estilos.modalPopup, { backgroundColor: colores.primary, shadowColor: colores.shadow }]}>
+            <Text style={[estilos.modalTitulo, { color: colores.on_primary }]}>
               Mesa {mesaParaModificar?.num_mesa}
             </Text>
 
@@ -103,46 +103,46 @@ export default function MeseroTablesScreen() {
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => handleSeleccionarEstado('ocupada')}
-              style={estilos.opcionEstadoBoton}
+              style={[estilos.opcionEstadoBoton, { borderColor: colores.on_primary }]}
             >
               <View style={estilos.iconoEstadoBox}>
-                <Ionicons name="lock-closed-outline" size={20} color="#FFFFFF" />
+                <Ionicons name="lock-closed-outline" size={20} color={colores.on_primary} />
               </View>
-              <Text style={estilos.textoOpcionEstado}>Ocupada</Text>
+              <Text style={[estilos.textoOpcionEstado, { color: colores.on_primary }]}>Ocupada</Text>
             </TouchableOpacity>
 
             {/* Opción: Apartada */}
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => handleSeleccionarEstado('apartada')}
-              style={estilos.opcionEstadoBoton}
+              style={[estilos.opcionEstadoBoton, { borderColor: colores.on_primary }]}
             >
               <View style={estilos.iconoEstadoBox}>
-                <Ionicons name="bookmark-outline" size={20} color="#FFFFFF" />
+                <Ionicons name="bookmark-outline" size={20} color={colores.on_primary} />
               </View>
-              <Text style={estilos.textoOpcionEstado}>Apartada</Text>
+              <Text style={[estilos.textoOpcionEstado, { color: colores.on_primary }]}>Apartada</Text>
             </TouchableOpacity>
 
             {/* Opción: Libre */}
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => handleSeleccionarEstado('libre')}
-              style={estilos.opcionEstadoBoton}
+              style={[estilos.opcionEstadoBoton, { borderColor: colores.on_primary }]}
             >
               <View style={estilos.iconoEstadoBox}>
-                <Ionicons name="sparkles-outline" size={20} color="#FFFFFF" />
+                <Ionicons name="sparkles-outline" size={20} color={colores.on_primary} />
               </View>
-              <Text style={estilos.textoOpcionEstado}>Libre</Text>
+              <Text style={[estilos.textoOpcionEstado, { color: colores.on_primary }]}>Libre</Text>
             </TouchableOpacity>
 
             {/* Botón rápido para tomar pedido en esta mesa */}
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={handleTomarPedidoMesa}
-              style={estilos.botonTomarPedidoDirecto}
+              style={[estilos.botonTomarPedidoDirecto, { backgroundColor: colores.surface }]}
             >
-              <Ionicons name="clipboard-outline" size={20} color="#388D7A" />
-              <Text style={estilos.textoTomarPedidoDirecto}>Tomar pedido en esta mesa</Text>
+              <Ionicons name="clipboard-outline" size={20} color={colores.primary} />
+              <Text style={[estilos.textoTomarPedidoDirecto, { color: colores.primary }]}>Tomar pedido en esta mesa</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -186,7 +186,6 @@ const estilos = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: espaciado.lg,
@@ -194,12 +193,10 @@ const estilos = StyleSheet.create({
   modalPopup: {
     width: '100%',
     maxWidth: 320,
-    backgroundColor: '#388D7A',
     borderRadius: 28,
     padding: espaciado.lg,
     alignItems: 'center',
     elevation: 8,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -208,14 +205,12 @@ const estilos = StyleSheet.create({
   modalTitulo: {
     fontFamily: fuentes.bold,
     fontSize: 22,
-    color: '#FFFFFF',
     marginBottom: espaciado.xs,
   },
   opcionEstadoBoton: {
     width: '100%',
     height: 54,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
     borderRadius: 27,
     flexDirection: 'row',
     alignItems: 'center',
@@ -229,13 +224,11 @@ const estilos = StyleSheet.create({
   textoOpcionEstado: {
     fontFamily: fuentes.bold,
     fontSize: 20,
-    color: '#FFFFFF',
   },
   botonTomarPedidoDirecto: {
     marginTop: espaciado.sm,
     width: '100%',
     height: 48,
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
@@ -245,6 +238,5 @@ const estilos = StyleSheet.create({
   textoTomarPedidoDirecto: {
     fontFamily: fuentes.bold,
     fontSize: 15,
-    color: '#388D7A',
   },
 });

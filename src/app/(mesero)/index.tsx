@@ -48,28 +48,28 @@ export default function MeseroHomeScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => router.push('/(mesero)/new-order')}
-            style={[estilos.botonAccion, { backgroundColor: '#388D7A' }]}
+            style={[estilos.botonAccion, { backgroundColor: colores.primary }]}
           >
-            <Ionicons name="clipboard-outline" size={28} color="#FFFFFF" style={estilos.iconoBoton} />
-            <Text style={estilos.textoBoton}>Tomar pedido</Text>
+            <Ionicons name="clipboard-outline" size={28} color={colores.on_primary} style={estilos.iconoBoton} />
+            <Text style={[estilos.textoBoton, { color: colores.on_primary }]}>Tomar pedido</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => router.push('/(mesero)/tables')}
-            style={[estilos.botonAccion, { backgroundColor: '#388D7A' }]}
+            style={[estilos.botonAccion, { backgroundColor: colores.primary }]}
           >
-            <Ionicons name="grid-outline" size={28} color="#FFFFFF" style={estilos.iconoBoton} />
-            <Text style={estilos.textoBoton}>Ver mesas</Text>
+            <Ionicons name="grid-outline" size={28} color={colores.on_primary} style={estilos.iconoBoton} />
+            <Text style={[estilos.textoBoton, { color: colores.on_primary }]}>Ver mesas</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => router.push('/(mesero)/view-menu' as any)}
-            style={[estilos.botonAccion, { backgroundColor: '#388D7A' }]}
+            style={[estilos.botonAccion, { backgroundColor: colores.primary }]}
           >
-            <Ionicons name="restaurant-outline" size={28} color="#FFFFFF" style={estilos.iconoBoton} />
-            <Text style={estilos.textoBoton}>Ver menú</Text>
+            <Ionicons name="restaurant-outline" size={28} color={colores.on_primary} style={estilos.iconoBoton} />
+            <Text style={[estilos.textoBoton, { color: colores.on_primary }]}>Ver menú</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -112,6 +112,5 @@ const estilos = StyleSheet.create({
   textoBoton: {
     fontFamily: fuentes.bold,
     fontSize: 22,
-    color: '#FFFFFF',
   },
 });

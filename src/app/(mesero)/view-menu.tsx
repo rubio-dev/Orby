@@ -32,7 +32,7 @@ export default function MeseroMenuViewScreen() {
   });
 
   const renderItem = ({ item }: { item: Producto }) => (
-    <View style={[estilos.tarjeta, { backgroundColor: colores.surface }]}>
+    <View style={[estilos.tarjeta, { backgroundColor: colores.surface, borderColor: colores.text }]}>
       <View style={estilos.imagenContenedor}>
         {item.imagen_url ? (
           <Image
@@ -41,7 +41,7 @@ export default function MeseroMenuViewScreen() {
             contentFit="cover"
           />
         ) : (
-          <View style={[estilos.imagenFallback, { backgroundColor: '#E2ECE8' }]}>
+          <View style={[estilos.imagenFallback, { backgroundColor: colores.placeholder }]}>
             <Ionicons name="cafe-outline" size={26} color={colores.primary_strong} />
           </View>
         )}
@@ -135,7 +135,6 @@ const estilos = StyleSheet.create({
     padding: espaciado.md,
     borderRadius: radios.xxl,
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     minHeight: 84,
   },
   imagenContenedor: {

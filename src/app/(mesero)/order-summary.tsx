@@ -80,7 +80,7 @@ export default function MeseroOrderSummaryScreen() {
           {carrito.map((item) => (
             <View
               key={item.id_producto}
-              style={[estilos.tarjetaItem, { backgroundColor: colores.surface }]}
+              style={[estilos.tarjetaItem, { backgroundColor: colores.surface, borderColor: colores.text }]}
             >
               <View style={estilos.filaSuperior}>
                 {/* Imagen del platillo */}
@@ -92,7 +92,7 @@ export default function MeseroOrderSummaryScreen() {
                       contentFit="cover"
                     />
                   ) : (
-                    <View style={[estilos.imagenFallback, { backgroundColor: '#E2ECE8' }]}>
+                    <View style={[estilos.imagenFallback, { backgroundColor: colores.placeholder }]}>
                       <Ionicons name="restaurant-outline" size={26} color={colores.primary_strong} />
                     </View>
                   )}
@@ -123,7 +123,7 @@ export default function MeseroOrderSummaryScreen() {
               </View>
 
               {/* Especificaciones */}
-              <View style={estilos.seccionEspecificaciones}>
+              <View style={[estilos.seccionEspecificaciones, { borderTopColor: colores.divider }]}>
                 <Text style={[estilos.labelEspecificaciones, { color: colores.text }]}>
                   Especificaciones
                 </Text>
@@ -131,18 +131,18 @@ export default function MeseroOrderSummaryScreen() {
                   value={item.especificaciones}
                   onChangeText={(texto) => actualizarEspecificaciones(item.id_producto, texto)}
                   placeholder="Descripción (ej. sin cebolla, salsa aparte)"
-                  placeholderTextColor="#8C9794"
-                  style={estilos.inputEspecificaciones}
+                  placeholderTextColor={colores.text_muted}
+                  style={[estilos.inputEspecificaciones, { color: colores.text }]}
                 />
               </View>
             </View>
           ))}
 
           {/* Línea divisoria y total */}
-          <View style={estilos.seccionTotal}>
+          <View style={[estilos.seccionTotal, { borderTopColor: colores.text }]}>
             <View style={estilos.filaTotal}>
-              <Text style={estilos.textoTotal}>Total</Text>
-              <Text style={estilos.montoTotal}>${total}</Text>
+              <Text style={[estilos.textoTotal, { color: colores.text }]}>Total</Text>
+              <Text style={[estilos.montoTotal, { color: colores.text }]}>${total}</Text>
             </View>
 
             {/* Botón Enviar a cocina */}
@@ -171,7 +171,6 @@ const estilos = StyleSheet.create({
   },
   tarjetaItem: {
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     borderRadius: radios.xxl,
     padding: espaciado.md,
   },
@@ -226,7 +225,6 @@ const estilos = StyleSheet.create({
     marginTop: espaciado.sm,
     paddingTop: espaciado.xs,
     borderTopWidth: 1,
-    borderTopColor: '#E6EAE8',
   },
   labelEspecificaciones: {
     fontFamily: fuentes.bold,
@@ -235,14 +233,12 @@ const estilos = StyleSheet.create({
   },
   inputEspecificaciones: {
     fontSize: 14,
-    color: '#1A1D1C',
     paddingVertical: 4,
   },
   seccionTotal: {
     marginTop: espaciado.xl,
     paddingTop: espaciado.md,
     borderTopWidth: 2,
-    borderTopColor: '#1A1D1C',
   },
   filaTotal: {
     flexDirection: 'row',
@@ -253,12 +249,10 @@ const estilos = StyleSheet.create({
   textoTotal: {
     fontFamily: fuentes.bold,
     fontSize: 26,
-    color: '#1A1D1C',
   },
   montoTotal: {
     fontFamily: fuentes.bold,
     fontSize: 26,
-    color: '#1A1D1C',
   },
   botonEnviar: {
     height: 54,

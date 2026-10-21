@@ -68,8 +68,8 @@ export default function MeseroProfileScreen() {
         >
           {/* Avatar circular */}
           <View style={estilos.avatarContenedor}>
-            <View style={[estilos.avatarCirculo, { backgroundColor: '#388D7A' }]}>
-              <Ionicons name="person" size={100} color="#FFFFFF" style={estilos.iconoAvatar} />
+            <View style={[estilos.avatarCirculo, { backgroundColor: colores.primary }]}>
+              <Ionicons name="person" size={100} color={colores.on_primary} style={estilos.iconoAvatar} />
             </View>
           </View>
 

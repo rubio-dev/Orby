@@ -62,7 +62,7 @@ export default function MeseroNewOrderScreen() {
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => handleAgregarProducto(item)}
-        style={[estilos.tarjetaProducto, { backgroundColor: colores.surface }]}
+        style={[estilos.tarjetaProducto, { backgroundColor: colores.surface, borderColor: colores.text }]}
       >
         <View style={estilos.imagenContenedor}>
           {item.imagen_url ? (
@@ -72,7 +72,7 @@ export default function MeseroNewOrderScreen() {
               contentFit="cover"
             />
           ) : (
-            <View style={[estilos.imagenFallback, { backgroundColor: '#E2ECE8' }]}>
+            <View style={[estilos.imagenFallback, { backgroundColor: colores.placeholder }]}>
               <Ionicons name="cafe-outline" size={26} color={colores.primary_strong} />
             </View>
           )}
@@ -93,8 +93,8 @@ export default function MeseroNewOrderScreen() {
         </View>
 
         {enCarrito && (
-          <View style={[estilos.badgeCantidad, { backgroundColor: '#388D7A' }]}>
-            <Text style={estilos.badgeTexto}>+{enCarrito.cantidad}</Text>
+          <View style={[estilos.badgeCantidad, { backgroundColor: colores.primary }]}>
+            <Text style={[estilos.badgeTexto, { color: colores.on_primary }]}>+{enCarrito.cantidad}</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -113,10 +113,10 @@ export default function MeseroNewOrderScreen() {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => setModalMesaAbierto(true)}
-          style={[estilos.selectorMesa, { backgroundColor: colores.surface }]}
+          style={[estilos.selectorMesa, { backgroundColor: colores.surface, borderColor: colores.text }]}
         >
-          <Text style={estilos.textoMesa}>Mesa {mesaSeleccionada}</Text>
-          <Ionicons name="chevron-down" size={24} color="#1A1D1C" />
+          <Text style={[estilos.textoMesa, { color: colores.text }]}>Mesa {mesaSeleccionada}</Text>
+          <Ionicons name="chevron-down" size={24} color={colores.text} />
         </TouchableOpacity>
 
         {/* Pastillas de Categorías: Bebidas | Comida | Postres */}
@@ -145,20 +145,20 @@ export default function MeseroNewOrderScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleIrAlResumen}
-            style={[estilos.botonAgregarPedido, { backgroundColor: '#388D7A' }]}
+            style={[estilos.botonAgregarPedido, { backgroundColor: colores.primary }]}
           >
-            <Text style={estilos.textoBotonAgregar}>Agregar pedido</Text>
+            <Text style={[estilos.textoBotonAgregar, { color: colores.on_primary }]}>Agregar pedido</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleIrAlResumen}
-            style={[estilos.botonCarrito, { backgroundColor: '#388D7A' }]}
+            style={[estilos.botonCarrito, { backgroundColor: colores.primary }]}
           >
-            <Ionicons name="cart" size={28} color="#FFFFFF" />
+            <Ionicons name="cart" size={28} color={colores.on_primary} />
             {cantidadTotalEnCarrito > 0 && (
-              <View style={estilos.badgeCarrito}>
-                <Text style={estilos.badgeCarritoTexto}>{cantidadTotalEnCarrito}</Text>
+              <View style={[estilos.badgeCarrito, { backgroundColor: colores.danger }]}>
+                <Text style={[estilos.badgeCarritoTexto, { color: colores.on_danger }]}>{cantidadTotalEnCarrito}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -173,12 +173,12 @@ export default function MeseroNewOrderScreen() {
         onRequestClose={() => setModalMesaAbierto(false)}
       >
         <TouchableOpacity
-          style={estilos.modalOverlay}
+          style={[estilos.modalOverlay, { backgroundColor: colores.overlay }]}
           activeOpacity={1}
           onPress={() => setModalMesaAbierto(false)}
         >
           <View style={[estilos.modalContenido, { backgroundColor: colores.surface }]}>
-            <Text style={[tipografia.titulo, { marginBottom: espaciado.md }]}>
+            <Text style={[tipografia.titulo, { color: colores.text, marginBottom: espaciado.md }]}>
               Seleccionar mesa
             </Text>
             <View style={estilos.gridMesasModal}>
@@ -188,8 +188,8 @@ export default function MeseroNewOrderScreen() {
                   style={[
                     estilos.itemMesaModal,
                     m.num_mesa === mesaSeleccionada
-                      ? { backgroundColor: '#388D7A' }
-                      : { backgroundColor: '#E2ECE8' },
+                      ? { backgroundColor: colores.primary }
+                      : { backgroundColor: colores.placeholder },
                   ]}
                   onPress={() => {
                     seleccionarMesa(m.num_mesa);
@@ -199,7 +199,7 @@ export default function MeseroNewOrderScreen() {
                   <Text
                     style={[
                       estilos.itemMesaModalTexto,
-                      { color: m.num_mesa === mesaSeleccionada ? '#FFFFFF' : '#1A1D1C' },
+                      { color: m.num_mesa === mesaSeleccionada ? colores.on_primary : colores.text },
                     ]}
                   >
                     {m.num_mesa}
@@ -228,7 +228,6 @@ const estilos = StyleSheet.create({
     justifyContent: 'space-between',
     height: 52,
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     borderRadius: 26,
     paddingHorizontal: espaciado.lg,
     marginBottom: espaciado.sm,
@@ -236,7 +235,6 @@ const estilos = StyleSheet.create({
   textoMesa: {
     fontFamily: fuentes.bold,
     fontSize: 20,
-    color: '#1A1D1C',
   },
   lista: {
     paddingBottom: 90,
@@ -249,7 +247,6 @@ const estilos = StyleSheet.create({
     padding: espaciado.md,
     borderRadius: radios.xxl,
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     minHeight: 84,
   },
   imagenContenedor: {
@@ -299,7 +296,6 @@ const estilos = StyleSheet.create({
     marginLeft: espaciado.xs,
   },
   badgeTexto: {
-    color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
   },
@@ -322,7 +318,6 @@ const estilos = StyleSheet.create({
   textoBotonAgregar: {
     fontFamily: fuentes.bold,
     fontSize: 18,
-    color: '#FFFFFF',
   },
   botonCarrito: {
     width: 54,
@@ -336,7 +331,6 @@ const estilos = StyleSheet.create({
     position: 'absolute',
     top: -2,
     right: -2,
-    backgroundColor: '#B3261E',
     minWidth: 18,
     height: 18,
     borderRadius: 9,
@@ -345,13 +339,11 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 2,
   },
   badgeCarritoTexto: {
-    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: espaciado.lg,

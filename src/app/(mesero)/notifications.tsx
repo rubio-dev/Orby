@@ -30,16 +30,16 @@ export default function MeseroNotificationsScreen() {
         estilos.tarjeta,
         {
           backgroundColor: colores.surface,
-          borderColor: '#1A1D1C',
+          borderColor: colores.text,
         },
       ]}
     >
       <View style={estilos.iconoContenedor}>
-        <Ionicons name="notifications-outline" size={32} color="#1A1D1C" />
+        <Ionicons name="notifications-outline" size={32} color={colores.text} />
       </View>
 
       <View style={estilos.info}>
-        <Text style={[estilos.titulo, { color: '#1A1D1C' }]}>Pedido listo</Text>
+        <Text style={[estilos.titulo, { color: colores.text }]}>Pedido listo</Text>
         <View style={estilos.filaDetalle}>
           <Text style={[estilos.mesaTexto, { color: colores.text_secondary }]}>
             Mesa {item.num_mesa}
