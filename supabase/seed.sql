@@ -30,11 +30,9 @@ SELECT setval(pg_get_serial_sequence('public.estado_mesa', 'id_estado'), (SELECT
 
 INSERT INTO "public"."estado_comanda" ("id_estado", "nombre_estado")
 OVERRIDING SYSTEM VALUE VALUES
-  (1, 'pendiente'),
-  (2, 'en preparación'),
-  (3, 'listo'),
-  (4, 'entregada'),
-  (5, 'cancelada')
+  (1, 'abierta'),
+  (2, 'cerrada'),
+  (3, 'cancelada')
 ON CONFLICT ("id_estado") DO UPDATE SET "nombre_estado" = EXCLUDED."nombre_estado";
 
 SELECT setval(pg_get_serial_sequence('public.estado_comanda', 'id_estado'), (SELECT MAX(id_estado) FROM public.estado_comanda));

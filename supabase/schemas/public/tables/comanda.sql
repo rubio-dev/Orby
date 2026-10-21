@@ -13,6 +13,10 @@ CREATE TABLE "public"."comanda" (
   CONSTRAINT "fk_comanda_usuario" FOREIGN KEY (id_usuario) REFERENCES public.usuario(id_usuario) ON UPDATE CASCADE ON DELETE CASCADE
 );
 
+-- Una sola comanda abierta (id_estado = 1) por mesa
+CREATE UNIQUE INDEX "idx_comanda_una_abierta_por_mesa"
+  ON "public"."comanda" ("id_mesa") WHERE "id_estado" = 1;
+
 ALTER TABLE "public"."comanda"
   ENABLE ROW LEVEL SECURITY;
 
