@@ -1,61 +1,189 @@
-import { Link } from 'expo-router'; // Enlaces entre pantallas
-import { useEffect, useState } from 'react'; // Estado y efectos de React
-import { StyleSheet, Text, View } from 'react-native'; // Componentes base de React Native
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 
-import { supabase_configurado, supabase_llave, supabase_url } from '@/lib/env'; // Datos de conexión del proyecto
-import { espaciado, tipografia, useTema } from '@/theme'; // Tema activo y tokens
+import { OrbyLogo } from '@/components/OrbyLogo';
+import { useAuth } from '@/context/auth-context';
+import { espaciado, fuentes, tipografia, useTema } from '@/theme';
 
-// FUNCIONES
-// Consulta el endpoint de salud de Auth para saber si el teléfono alcanza a Supabase
-async function verificar_conexion() {
-  // Sin variables de entorno no hay a dónde conectarse
-  if (!supabase_configurado) {
-    return 'Falta configurar .env';
-  }
+const { width } = Dimensions.get('window');
 
-  try {
-    const respuesta = await fetch(`${supabase_url}/auth/v1/health`, { headers: { apikey: supabase_llave } });
-
-    return respuesta.ok ? 'Conectado a Supabase' : `Supabase respondió ${respuesta.status}`;
-  } catch {
-    return `Sin conexión con ${supabase_url}`;
-  }
-}
-
-// PANTALLA DE INICIO
-// Pantalla temporal: muestra si la app logra conectarse a Supabase
-export default function InicioScreen() {
+export default function GeneralWelcomeScreen() {
+  const router = useRouter();
   const { colores } = useTema();
-  const [estado_conexion, set_estado_conexion] = useState('Verificando conexión...');
+  const { usuario } = useAuth();
 
-  // Verificar la conexión una sola vez al abrir la pantalla
-  useEffect(() => {
-    verificar_conexion().then(set_estado_conexion);
-  }, []);
+  const handleComenzar = () => {
+    if (usuario) {
+      if (usuario.rol === 'administrador') {
+        router.push('/(admin)' as any);
+      } else if (usuario.rol === 'mesero') {
+        router.push('/(mesero)' as any);
+      } else if (usuario.rol === 'cocina') {
+        router.push('/(cocina)' as any);
+      } else {
+        router.push('/login');
+      }
+    } else {
+      router.push('/login');
+    }
+  };
 
   return (
-    <View style={[estilos.contenedor, { backgroundColor: colores.background_auth }]}>
-      <Text style={[tipografia.display, { color: colores.text }]}>Orby</Text>
-      <Text style={[tipografia.cuerpo, { color: colores.text_secondary }]}>{estado_conexion}</Text>
+    <SafeAreaView style={[estilos.pantalla, { backgroundColor: '#EEF4F2' }]}>
+      <View style={estilos.contenedorContenido}>
+        {/* Espacio superior */}
+        <View style={estilos.superior} />
 
-      {/* Acceso al laboratorio visual, solo en desarrollo */}
-      {__DEV__ && (
-        <Link href="/lab" style={[tipografia.boton, estilos.enlace, { color: colores.primary_strong }]}>Abrir laboratorio</Link>
-      )}
-    </View>
+        {/* Logotipo principal Orby */}
+        <View style={estilos.logoSeccion}>
+          <OrbyLogo size={190} showText={true} textColor="#3E2312" />
+        </View>
+
+        {/* Lema y descripción */}
+        <View style={estilos.textosSeccion}>
+          <Text style={[estilos.lemaPrincipal, { color: '#0F1412' }]}>
+            Tu cafetería en órbita
+          </Text>
+
+          <Text style={[estilos.descripcion, { color: '#1A1D1C' }]}>
+            Conecta personas,{'\n'}comandas y sabor.
+          </Text>
+        </View>
+
+        {/* Botón de acceso directo */}
+        <View style={estilos.botonSeccion}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleComenzar}
+            style={[estilos.botonEntrar, { backgroundColor: colores.primary }]}
+          >
+            <Text style={estilos.textoBotonEntrar}>
+              {usuario ? `Continuar (${usuario.nombre})` : 'Comenzar'}
+            </Text>
+            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={{ marginLeft: 6 }} />
+          </TouchableOpacity>
+
+          {usuario && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => router.push('/login')}
+              style={estilos.enlaceCambiarCuenta}
+            >
+              <Text style={[tipografia.etiqueta, { color: colores.text_secondary }]}>
+                Cambiar de usuario o iniciar sesión
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {__DEV__ && (
+            <TouchableOpacity
+              onPress={() => router.push('/lab')}
+              style={estilos.enlaceLab}
+            >
+              <Text style={[tipografia.micro, { color: colores.text_muted }]}>
+                Abrir laboratorio de diseño (/lab)
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* Decoración de ondas inferiores del mockup */}
+      <View style={estilos.ondasContenedor} pointerEvents="none">
+        <Svg width={width} height={140} viewBox="0 0 390 140" fill="none">
+          <Path
+            d="M-20 80 C 60 40 160 100 240 60 C 310 25 360 45 420 20 L 420 150 L -20 150 Z"
+            fill="#519787"
+            opacity={0.9}
+          />
+          <Path
+            d="M-30 110 C 70 65 190 90 280 50 C 340 20 380 40 430 35 L 430 150 L -30 150 Z"
+            fill="#3B8776"
+          />
+        </Svg>
+      </View>
+    </SafeAreaView>
   );
 }
 
-// ESTILOS
 const estilos = StyleSheet.create({
-  contenedor: {
+  pantalla: {
     flex: 1,
+    position: 'relative',
+  },
+  contenedorContenido: {
+    flex: 1,
+    paddingHorizontal: espaciado.pantalla,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 2,
+    paddingBottom: 40,
+  },
+  superior: {
+    height: 30,
+  },
+  logoSeccion: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  textosSeccion: {
+    alignItems: 'center',
+    marginVertical: espaciado.xl,
+  },
+  lemaPrincipal: {
+    fontFamily: fuentes.bold,
+    fontSize: 26,
+    lineHeight: 32,
+    textAlign: 'center',
+    marginBottom: espaciado.lg,
+  },
+  descripcion: {
+    fontFamily: fuentes.regular,
+    fontSize: 22,
+    lineHeight: 30,
+    textAlign: 'center',
+  },
+  botonSeccion: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 'auto',
+    marginBottom: 60,
+  },
+  botonEntrar: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: espaciado.sm,
+    height: 52,
+    paddingHorizontal: espaciado.xxl,
+    borderRadius: 26,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  enlace: {
-    marginTop: espaciado.xl,
-    padding: espaciado.md,
+  textoBotonEntrar: {
+    fontFamily: fuentes.bold,
+    fontSize: 17,
+    color: '#FFFFFF',
+  },
+  enlaceCambiarCuenta: {
+    marginTop: espaciado.sm,
+    padding: espaciado.xs,
+  },
+  enlaceLab: {
+    marginTop: espaciado.sm,
+    padding: espaciado.xs,
+  },
+  ondasContenedor: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
   },
 });

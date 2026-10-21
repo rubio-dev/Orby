@@ -10,6 +10,9 @@ import * as SplashScreen from 'expo-splash-screen'; // Pantalla de arranque mien
 import { StatusBar } from 'expo-status-bar'; // Barra de estado del sistema
 import { useEffect } from 'react'; // Efectos de React
 
+import { AuthProvider } from '@/context/auth-context'; // Proveedor de sesión y roles
+import { CatalogProvider } from '@/context/catalog-context'; // Proveedor del catálogo de productos
+import { OrdersProvider } from '@/context/orders-context'; // Proveedor de comandas y mesas
 import { TemaProvider, useTema } from '@/theme'; // Tema activo de la app
 
 // Mantener la pantalla de arranque hasta que las fuentes estén listas
@@ -23,13 +26,19 @@ function Navegacion() {
   return (
     <>
       <StatusBar style={modo === 'oscuro' ? 'light' : 'dark'} />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colores.background } }} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colores.background },
+          animation: 'fade',
+        }}
+      />
     </>
   );
 }
 
 // LAYOUT RAÍZ
-// Carga las fuentes y monta el proveedor de tema; las pantallas viven en src/app/
+// Carga las fuentes y monta los proveedores; las pantallas viven en src/app/
 export default function RootLayout() {
   const [fuentes_cargadas, error_fuentes] = useFonts({
     JosefinSans_300Light,
@@ -52,7 +61,13 @@ export default function RootLayout() {
 
   return (
     <TemaProvider>
-      <Navegacion />
+      <AuthProvider>
+        <CatalogProvider>
+          <OrdersProvider>
+            <Navegacion />
+          </OrdersProvider>
+        </CatalogProvider>
+      </AuthProvider>
     </TemaProvider>
   );
 }
