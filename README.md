@@ -134,15 +134,25 @@ Las tablas y permisos se escriben como **migraciones**: archivos `.sql` en `supa
 ```
 src/
   app/            Pantallas (cada archivo es una ruta de Expo Router)
+    (admin)/      Pantallas del administrador
+    (cocina)/     Pantallas de cocina
+    (mesero)/     Pantallas del mesero
     lab/          Laboratorio visual (solo en desarrollo)
+  components/     Componentes reutilizables (botones, inputs, cabeceras y navegación por rol)
+  context/        Estado global: sesión, catálogo y comandas (AsyncStorage + Supabase)
   lab/            Secciones del laboratorio
   lib/
     env.ts        Variables de entorno
     supabase.ts   Cliente de Supabase compartido (obtener_supabase)
-  theme/          Tokens de diseño, temas Orby y Miami, proveedor de tema por toda la app
+  theme/          Tokens, temas Orby y Miami, proveedor de tema y colores de marca
+  types/          Tipos de usuarios, roles, productos, mesas y comandas
 supabase/
   config.toml     Configuración del Supabase local
-  migrations/     Cambios de la base de datos en SQL (se crea con la primera migración)
+  migrations/     Cambios de la base de datos en SQL
+  schemas/        Esquemas declarativos de tablas, funciones y extensiones
+  seed.sql        Catálogos, mesas, categorías y usuarios demo para local
+  functions/
+    registrar-empleado/  Edge Function para alta de meseros y cocineros
 assets/           Íconos e imágenes
 ```
 
