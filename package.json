@@ -49,6 +49,7 @@
     "typecheck": "tsc --noEmit",
     "db:start": "supabase start",
     "db:start:lite": "supabase start -x studio,postgres-meta,storage-api,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor",
+    "db:start:funcs": "supabase start -x studio,postgres-meta,storage-api,imgproxy,mailpit,logflare,vector,supavisor",
     "db:stop": "supabase stop",
     "db:status": "supabase status"
   },
