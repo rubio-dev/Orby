@@ -4,6 +4,71 @@ Cada decisión lleva su fecha, qué se decidió y por qué. Las más recientes v
 
 ---
 
+## 2026-10-20: Migración de colores fijos a tokens del tema
+
+- **Decisión:** todos los colores de `src/app/` y `src/components/` salen de `useTema()` (`colores.*`), salvo el logotipo (ver la entrada siguiente). Se eliminaron los hexadecimales y los `rgba(...)` de pantallas y componentes; los overlays usan `colores.overlay`.
+- **Tokens nuevos:** `on_danger`, `on_warning`, `success` y `shadow`, definidos en las 4 paletas de `src/theme/themes.ts`.
+  - `on_danger` / `on_warning`: en modo oscuro `danger` y `warning` son claros (`#FF8A80` y `#E8B85C`), así que el texto encima tiene que ser oscuro. El blanco no alcanzaba el contraste.
+  - `success`: no existía un token para la variación positiva de las métricas; antes era el verde fijo `#10B981`.
+  - `shadow`: `shadowColor` era `#000`; la opacidad sigue definiéndose en cada estilo.
+- **Verificación:** los pares nuevos están en la sección de contrastes de `/lab`; `pnpm typecheck` y `pnpm lint` pasan. `grep` no encuentra hex ni `rgba` en `src/app/` ni en `src/components/`.
+- **Commits:** `758e604` (componentes), `6c978a7` (mesero), `ad2c787` (cocina), `a37b371` (admin), `8911b79` (bienvenida y login); la documentación de los tokens quedó en `101c747`.
+- **Motivo:** con colores fijos, el tema Miami y el modo oscuro no funcionaban en las pantallas nuevas: los colores no seguían el tema activo.
+
+## 2026-10-20: El logotipo usa colores de marca, no tokens de tema
+
+- **Decisión:** los colores de la ilustración de `OrbyLogo` viven en `coloresMarca` (`src/theme/tokens.ts`), no en las 4 paletas. El texto "Orby" usa `colores.text`.
+- **Motivo:** la identidad del logo no cambia con el tema ni con el modo. Meter sus colores en las paletas obligaría a duplicarlos en Orby/Miami y claro/oscuro sin que el logo cambie.
+- **Consecuencia:** `src/components/OrbyLogo.tsx` es la única pieza de `src/components/` que no usa solo tokens semánticos; se documenta como excepción.
+
+## 2026-10-20: Contextos de React con AsyncStorage y Supabase en segundo plano
+
+- **Decisión:** el estado global vive en tres contextos: `AuthProvider`, `CatalogProvider` y `OrdersProvider` (`src/context/`), montados en `src/app/_layout.tsx`.
+- **Fuente de datos:** AsyncStorage es la fuente inmediata. Claves: `@orby_usuario_sesion`, `@orby_personal_registrado`, `@orby_productos`, `@orby_mesas`, `@orby_comandas` y `@orby_notificaciones`.
+- **Escrituras:** cada acción actualiza el estado y AsyncStorage primero; si `supabase_configurado`, después intenta escribir en Supabase dentro de `try/catch` y solo registra `console.warn` si falla. La interfaz no espera a la red.
+- **Auth:** intenta `signInWithPassword` contra Supabase y, si falla o no está configurado, cae a usuarios demo y al personal registrado en local. `registrarPersonal` invoca la Edge Function `registrar-empleado`; `registrarAdministrador` usa `auth.signUp`.
+- **Catálogo:** lee productos de Supabase solo si no hay caché local; los cambios de estado y las altas se guardan en local y se intentan sincronizar.
+- **Comandas:** mesas, comandas y notificaciones son locales; `enviarComandaACocina` inserta la cabecera en Supabase, pero no el detalle.
+- **Motivo:** no consta en el commit. Se deduce que se buscó que la app funcione sin Supabase (modo demo) y que la interfaz no se bloquee si la red falla; la razón explícita no está documentada.
+- **Consecuencia:** los IDs locales (`mesa-4`, `usr-2`) no son UUID y el detalle no se escribe; ver [open-questions](open-questions.md#técnico).
+
+## 2026-10-20: Componentes propios con StyleSheet
+
+- **Decisión:** la interfaz se construye con componentes propios en `src/components/`, con `StyleSheet.create` y los tokens de `@/theme`. No se usan NativeWind ni React Native Reusables.
+- **Verificación:** `package.json` no tiene `nativewind` ni `react-native-reusables`; los 10 componentes de `src/components/` usan `StyleSheet`.
+- **Motivo:** el commit no explica por qué se descartaron NativeWind y Reusables. Se deduce que se evitó una dependencia extra y se mantuvo el control de los dos temas, pero es una deducción; el motivo explícito queda como pregunta abierta.
+- **Consecuencia:** la pregunta "Librería de componentes" de `open-questions.md` se cierra.
+
+## 2026-10-20: Pantallas y flujos de los tres roles
+
+- **Decisión:** se implementan las pantallas de administrador, mesero y cocina en las rutas `(admin)`, `(mesero)` y `(cocina)`, con datos de demostración y navegación por rol.
+- **Qué incluye:** inicio, menú, personal, perfil y alta de producto (admin); inicio, mesas, nuevo pedido, resumen, menú, notificaciones y perfil (mesero); inicio, comandas, detalle, historial y perfil (cocina).
+- **Flujos:** el historial de cocina existe; "Favoritos" filtra Latte y Frappé; "Categorías" muestra Bebidas/Comida/Postres y no permite crearlas; cocina marca cada producto y cierra la comanda a mano.
+- **Motivo:** es el primer diseño funcional de Orby; el commit no documenta por qué se eligieron esos flujos ni si son definitivos. Las dudas de producto que siguen abiertas están en [open-questions](open-questions.md).
+
+## 2026-10-20: Autenticación, contraseñas y alta de personal
+
+- **Decisión:** un solo login para los tres roles; la contraseña mínima es 6 en `src/app/login.tsx` y en `supabase/config.toml`; "¿Olvidaste tu contraseña?" muestra un aviso para contactar al administrador (no hay recuperación por correo); el administrador da de alta meseros y cocineros desde Personal.
+- **Alta de personal:** `registrarPersonal` invoca la Edge Function `registrar-empleado`, que valida el JWT, comprueba que el llamante sea administrador (`id_rol = 1`), permite solo roles `mesero` y `cocina` y crea el usuario con `auth.admin.createUser`; el trigger `handle_new_user` crea el perfil.
+- **Registro de administrador:** `login.tsx` también ofrece "Registrar Admin" y `auth-context.tsx` llama `supabase.auth.signUp` con `rol: 'administrador'` y `nombre_cafeteria`; el trigger crea la cafetería. Esto contradice la suposición anterior de que no había registro público; queda abierto en [open-questions](open-questions.md#flujo-y-reglas-de-negocio).
+- **Modo demo:** el login tiene accesos rápidos y `iniciarSesion` acepta usuarios demo/personal local sin comprobar contraseña.
+- **Motivo:** el commit no documenta estas decisiones; se registra el comportamiento actual.
+
+## 2026-10-20: Políticas RLS iniciales permisivas
+
+- **Decisión:** `supabase/migrations/20261021000000_politicas_rls.sql` crea políticas para las tablas, pero todas usan `USING (true)` y/o `WITH CHECK (true)`: catálogos con `SELECT` libre; cafetería y usuario con inserción, lectura y actualización (usuario también borrado); mesas, categorías, productos, comandas, detalles y notificaciones con `FOR ALL`.
+- **Motivo:** no consta en el commit. Parece una base para que la app funcione mientras se define el RLS por rol, pero no se puede afirmar; queda como pregunta abierta de seguridad.
+- **Consecuencia:** con la llave pública cualquiera puede leer todas las tablas y escribir en cafetería, usuario, mesa, categoría, producto, comanda, detalle_comanda y notificación. No usar en producción hasta reemplazarlas.
+
+## 2026-10-20: Esquema inicial de la base de datos y semillas
+
+- **Decisión:** se agrega `supabase/migrations/20261020000000_esquema_inicial.sql` con 14 tablas: catálogos (`estado_cafeteria`, `estado_comanda`, `estado_detalles_comanda`, `estado_mesa`, `tipo_notificacion`, `role`) y entidades (`cafeteria`, `categoria`, `mesa`, `producto`, `usuario`, `comanda`, `detalle_comanda`, `notificacion`).
+- **Detalles:** las entidades usan PK UUID (`gen_random_uuid()`; `usuario` referencia `auth.users`), los catálogos usan enteros `identity`, los precios son `numeric(10,2)`, las FKs usan `ON DELETE CASCADE`/`RESTRICT`, todas las tablas tienen RLS activado y el trigger `on_auth_user_created` ejecuta `handle_new_user()` para crear la cafetería del administrador o vincular al empleado con su cafetería.
+- **Semillas:** `supabase/seed.sql` carga catálogos con IDs fijos (roles 1/2/3, estados y tipos de notificación), la cafetería `Orby Cafetería`, 11 mesas, 3 categorías y 3 usuarios demo (`admin@orby.com`, `mesero@orby.com`, `cocina@orby.com`).
+- **Esquemas declarativos:** `supabase/schemas/` guarda la exportación declarativa de tablas, funciones y extensiones; `ad6fe3e` limpió un comentario con el project-ref de la migración inicial.
+- **Motivo:** no está documentado en el commit. El esquema cubre las entidades y estados que usan las pantallas; las razones de las decisiones concretas (UUID, `numeric`, trigger) no se deducen del historial.
+- **Consecuencia:** las políticas RLS de la migración siguiente son permisivas; ver la entrada de RLS y [open-questions](open-questions.md#técnico).
+
 ## 2026-10-19: Primer push a GitHub
 
 - **Repositorio:** [rubio-dev/Orby](https://github.com/rubio-dev/Orby), público, rama `main`.
