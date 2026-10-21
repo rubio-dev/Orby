@@ -48,10 +48,10 @@ export default function CocinaHomeScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => router.push('/(cocina)/orders')}
-            style={[estilos.botonAccion, { backgroundColor: '#388D7A' }]}
+            style={[estilos.botonAccion, { backgroundColor: colores.primary }]}
           >
-            <Ionicons name="fast-food-outline" size={28} color="#FFFFFF" style={estilos.iconoBoton} />
-            <Text style={estilos.textoBoton}>Comandas</Text>
+            <Ionicons name="fast-food-outline" size={28} color={colores.on_primary} style={estilos.iconoBoton} />
+            <Text style={[estilos.textoBoton, { color: colores.on_primary }]}>Comandas</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -93,6 +93,5 @@ const estilos = StyleSheet.create({
   textoBoton: {
     fontFamily: fuentes.bold,
     fontSize: 22,
-    color: '#FFFFFF',
   },
 });

@@ -24,13 +24,13 @@ export default function CocinaHistoryScreen() {
   const completadas = comandas.filter((c) => c.id_estado === 3 || c.id_estado === 4);
 
   const renderComanda = ({ item }: { item: Comanda }) => (
-    <View style={[estilos.tarjeta, { backgroundColor: colores.surface }]}>
+    <View style={[estilos.tarjeta, { backgroundColor: colores.surface, borderColor: colores.text }]}>
       <View style={estilos.cabecera}>
         <Text style={[estilos.mesa, { color: colores.text }]}>
           Mesa {item.num_mesa}
         </Text>
-        <View style={estilos.chipListo}>
-          <Text style={estilos.textoChipListo}>Completado</Text>
+        <View style={[estilos.chipListo, { backgroundColor: colores.primary_soft }]}>
+          <Text style={[estilos.textoChipListo, { color: colores.primary_strong }]}>Completado</Text>
         </View>
       </View>
 
@@ -42,7 +42,7 @@ export default function CocinaHistoryScreen() {
         ))}
       </View>
 
-      <View style={estilos.pie}>
+      <View style={[estilos.pie, { borderTopColor: colores.divider }]}>
         <Text style={[tipografia.detalle, { color: colores.text_muted }]}>
           Total: ${item.total}
         </Text>
@@ -104,7 +104,6 @@ const estilos = StyleSheet.create({
     padding: espaciado.md,
     borderRadius: radios.xxl,
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
   },
   cabecera: {
     flexDirection: 'row',
@@ -117,7 +116,6 @@ const estilos = StyleSheet.create({
     fontSize: 20,
   },
   chipListo: {
-    backgroundColor: '#D8ECE5',
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 10,
@@ -125,7 +123,6 @@ const estilos = StyleSheet.create({
   textoChipListo: {
     fontFamily: fuentes.bold,
     fontSize: 12,
-    color: '#276858',
   },
   detalles: {
     marginVertical: espaciado.xs,
@@ -142,7 +139,6 @@ const estilos = StyleSheet.create({
     marginTop: espaciado.xs,
     paddingTop: espaciado.xs,
     borderTopWidth: 1,
-    borderTopColor: '#E6EAE8',
   },
   vacio: {
     alignItems: 'center',

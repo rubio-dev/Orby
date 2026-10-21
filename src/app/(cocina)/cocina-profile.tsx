@@ -68,8 +68,8 @@ export default function CocinaProfileScreen() {
         >
           {/* Avatar circular */}
           <View style={estilos.avatarContenedor}>
-            <View style={[estilos.avatarCirculo, { backgroundColor: '#388D7A' }]}>
-              <Ionicons name="restaurant" size={90} color="#FFFFFF" style={estilos.iconoAvatar} />
+            <View style={[estilos.avatarCirculo, { backgroundColor: colores.primary }]}>
+              <Ionicons name="restaurant" size={90} color={colores.on_primary} style={estilos.iconoAvatar} />
             </View>
           </View>
 

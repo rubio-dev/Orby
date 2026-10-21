@@ -42,11 +42,11 @@ export default function CocinaOrdersScreen() {
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => router.push(`/(cocina)/order-detail?id=${item.id_comanda}`)}
-        style={[estilos.tarjetaComanda, { backgroundColor: colores.surface }]}
+        style={[estilos.tarjetaComanda, { backgroundColor: colores.surface, borderColor: colores.text }]}
       >
         {/* Icono de gorro de chef / cocina */}
-        <View style={estilos.iconoChef}>
-          <Ionicons name="restaurant-outline" size={32} color="#1A1D1C" />
+        <View style={[estilos.iconoChef, { borderColor: colores.text }]}>
+          <Ionicons name="restaurant-outline" size={32} color={colores.text} />
         </View>
 
         {/* Información central: Mesa y lista de platillos */}
@@ -68,11 +68,11 @@ export default function CocinaOrdersScreen() {
             <Text style={[estilos.tiempoTexto, { color: colores.text }]}>
               {minutos} min
             </Text>
-            <Ionicons name="arrow-undo-outline" size={14} color="#1A1D1C" style={estilos.iconoFlechaTiempo} />
+            <Ionicons name="arrow-undo-outline" size={14} color={colores.text} style={estilos.iconoFlechaTiempo} />
           </View>
 
-          <View style={[estilos.chipEstado, { backgroundColor: '#D8ECE5' }]}>
-            <Text style={[estilos.textoChipEstado, { color: '#276858' }]}>
+          <View style={[estilos.chipEstado, { backgroundColor: colores.primary_soft }]}>
+            <Text style={[estilos.textoChipEstado, { color: colores.primary_strong }]}>
               {item.id_estado === 2 ? 'En preparación' : 'Listo'}
             </Text>
           </View>
@@ -142,7 +142,6 @@ const estilos = StyleSheet.create({
     padding: espaciado.md,
     borderRadius: radios.xxl,
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     minHeight: 90,
   },
   iconoChef: {
@@ -150,7 +149,6 @@ const estilos = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: espaciado.md,

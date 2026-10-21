@@ -85,7 +85,7 @@ export default function CocinaOrderDetailScreen() {
 
       <ScrollView contentContainerStyle={estilos.scroll} showsVerticalScrollIndicator={false}>
         {/* Subtítulo: Orden #1 */}
-        <Text style={[estilos.subtituloOrden, { color: '#388D7A' }]}>
+        <Text style={[estilos.subtituloOrden, { color: colores.primary }]}>
           Orden #{comanda.num_mesa}
         </Text>
 
@@ -97,12 +97,12 @@ export default function CocinaOrderDetailScreen() {
           return (
             <View
               key={detalle.id_detalle}
-              style={[estilos.tarjetaItem, { backgroundColor: colores.surface }]}
+              style={[estilos.tarjetaItem, { backgroundColor: colores.surface, borderColor: colores.text }]}
             >
               <View style={estilos.filaContenido}>
                 {/* Imagen del producto */}
                 <View style={estilos.imagenContenedor}>
-                  <View style={[estilos.imagenFallback, { backgroundColor: '#E2ECE8' }]}>
+                  <View style={[estilos.imagenFallback, { backgroundColor: colores.placeholder }]}>
                     <Ionicons name="fast-food-outline" size={26} color={colores.primary_strong} />
                   </View>
                 </View>
@@ -121,15 +121,15 @@ export default function CocinaOrderDetailScreen() {
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => setDetalleParaTiempo(detalle)}
-                  style={estilos.cajaTiempoEstimado}
+                  style={[estilos.cajaTiempoEstimado, { borderColor: colores.text }]}
                 >
-                  <Text style={estilos.labelTiempoEstimado}>
+                  <Text style={[estilos.labelTiempoEstimado, { color: colores.text }]}>
                     Selecciona el tiempo{'\n'}estimado (min):
                   </Text>
-                  <View style={estilos.dropdownPill}>
-                    <Ionicons name="time-outline" size={16} color="#1A1D1C" />
-                    <Text style={estilos.textoMinutosDropdown}>{minutos}:00</Text>
-                    <Ionicons name="chevron-down" size={16} color="#1A1D1C" />
+                  <View style={[estilos.dropdownPill, { borderColor: colores.text }]}>
+                    <Ionicons name="time-outline" size={16} color={colores.text} />
+                    <Text style={[estilos.textoMinutosDropdown, { color: colores.text }]}>{minutos}:00</Text>
+                    <Ionicons name="chevron-down" size={16} color={colores.text} />
                   </View>
                 </TouchableOpacity>
               </View>
@@ -141,13 +141,19 @@ export default function CocinaOrderDetailScreen() {
                   onPress={() => actualizarEstadoDetalle(comanda.id_comanda, detalle.id_detalle, 2)}
                   style={[
                     estilos.botonEstado,
-                    !estaListo ? estilos.botonEnPrepActivo : estilos.botonInactivo,
+                    !estaListo
+                      ? {
+                          backgroundColor: colores.warning_soft,
+                          borderWidth: 1.5,
+                          borderColor: colores.warning_border,
+                        }
+                      : { backgroundColor: colores.surface_muted },
                   ]}
                 >
                   <Text
                     style={[
                       estilos.textoBotonEstado,
-                      !estaListo ? { color: '#8A5A00' } : { color: '#7E8784' },
+                      !estaListo ? { color: colores.warning } : { color: colores.text_muted },
                     ]}
                   >
                     En preparación
@@ -159,13 +165,15 @@ export default function CocinaOrderDetailScreen() {
                   onPress={() => actualizarEstadoDetalle(comanda.id_comanda, detalle.id_detalle, 3)}
                   style={[
                     estilos.botonEstado,
-                    estaListo ? estilos.botonListoActivo : estilos.botonInactivo,
+                    estaListo
+                      ? { backgroundColor: colores.primary }
+                      : { backgroundColor: colores.surface_muted },
                   ]}
                 >
                   <Text
                     style={[
                       estilos.textoBotonEstado,
-                      estaListo ? { color: '#FFFFFF' } : { color: '#7E8784' },
+                      estaListo ? { color: colores.on_primary } : { color: colores.text_muted },
                     ]}
                   >
                     Listo
@@ -177,15 +185,15 @@ export default function CocinaOrderDetailScreen() {
         })}
 
         {/* Tarjeta de Especificaciones del cliente */}
-        <View style={[estilos.tarjetaEspecificaciones, { backgroundColor: colores.surface }]}>
-          <Text style={estilos.tituloEspecificaciones}>Especificaciones:</Text>
-          <Text style={estilos.textoEspecificaciones}>
+        <View style={[estilos.tarjetaEspecificaciones, { backgroundColor: colores.surface, borderColor: colores.text }]}>
+          <Text style={[estilos.tituloEspecificaciones, { color: colores.text }]}>Especificaciones:</Text>
+          <Text style={[estilos.textoEspecificaciones, { color: colores.text_secondary }]}>
             • {comanda.detalles.find((d) => d.especificaciones)?.especificaciones || 'Sin cebolla'}
           </Text>
         </View>
 
         {/* Tiempo estimado total */}
-        <Text style={estilos.tiempoEstimadoTotalTexto}>
+        <Text style={[estilos.tiempoEstimadoTotalTexto, { color: colores.text }]}>
           Tiempo estimado: {tiempoEstimadoTotal}min
         </Text>
 
@@ -206,7 +214,7 @@ export default function CocinaOrderDetailScreen() {
         onRequestClose={() => setDetalleParaTiempo(null)}
       >
         <TouchableOpacity
-          style={estilos.modalOverlay}
+          style={[estilos.modalOverlay, { backgroundColor: colores.overlay }]}
           activeOpacity={1}
           onPress={() => setDetalleParaTiempo(null)}
         >
@@ -221,8 +229,8 @@ export default function CocinaOrderDetailScreen() {
                   style={[
                     estilos.opcionTiempoItem,
                     detalleParaTiempo?.tiempo_estimado_minutos === min
-                      ? { backgroundColor: '#388D7A' }
-                      : { backgroundColor: '#E2ECE8' },
+                      ? { backgroundColor: colores.primary }
+                      : { backgroundColor: colores.placeholder },
                   ]}
                   onPress={async () => {
                     if (detalleParaTiempo) {
@@ -241,8 +249,8 @@ export default function CocinaOrderDetailScreen() {
                       {
                         color:
                           detalleParaTiempo?.tiempo_estimado_minutos === min
-                            ? '#FFFFFF'
-                            : '#1A1D1C',
+                            ? colores.on_primary
+                            : colores.text,
                       },
                     ]}
                   >
@@ -276,7 +284,6 @@ const estilos = StyleSheet.create({
   tarjetaItem: {
     borderRadius: radios.xxl,
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     padding: espaciado.md,
   },
   filaContenido: {
@@ -312,7 +319,6 @@ const estilos = StyleSheet.create({
   },
   cajaTiempoEstimado: {
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     borderRadius: radios.lg,
     padding: espaciado.xs,
     alignItems: 'center',
@@ -328,7 +334,6 @@ const estilos = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     borderRadius: 14,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -350,24 +355,12 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  botonEnPrepActivo: {
-    backgroundColor: '#F7EDD8',
-    borderWidth: 1.5,
-    borderColor: '#D8C08A',
-  },
-  botonListoActivo: {
-    backgroundColor: '#388D7A',
-  },
-  botonInactivo: {
-    backgroundColor: '#EAEFEB',
-  },
   textoBotonEstado: {
     fontFamily: fuentes.bold,
     fontSize: 15,
   },
   tarjetaEspecificaciones: {
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     borderRadius: radios.xxl,
     padding: espaciado.lg,
     marginTop: espaciado.xs,
@@ -375,19 +368,16 @@ const estilos = StyleSheet.create({
   tituloEspecificaciones: {
     fontFamily: fuentes.bold,
     fontSize: 18,
-    color: '#1A1D1C',
     marginBottom: 4,
   },
   textoEspecificaciones: {
     fontSize: 16,
-    color: '#4F5553',
     paddingLeft: 4,
   },
   tiempoEstimadoTotalTexto: {
     fontFamily: fuentes.bold,
     fontSize: 24,
     textAlign: 'center',
-    color: '#1A1D1C',
     marginVertical: espaciado.sm,
   },
   botonCompletar: {
@@ -400,7 +390,6 @@ const estilos = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: espaciado.lg,
