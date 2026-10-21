@@ -156,9 +156,22 @@ La lista completa está en `src/theme/themes.ts`. El naranja de atardecer (`#FF9
 
 ## Componentes
 
-**Estado actual:** ya están listos los tokens, los dos temas y el laboratorio. **Todavía no hay ningún componente.** Antes de construir el primero falta elegir la librería (ver [open-questions](open-questions.md#interfaz)).
+**Estado actual:** los tokens, los temas Orby/Miami y el laboratorio están listos. `src/components/` tiene 10 componentes propios, construidos con `StyleSheet` y los tokens de `useTema()`; ya no queda ningún color hexadecimal en `src/components/` ni en `src/app/`. La librería quedó decidida: no se instalaron NativeWind ni React Native Reusables (ver [decisions](decisions.md)).
 
-Inventario sacado del mockup. Los nombres de archivo van en inglés.
+| Componente | Qué ofrece | ¿Solo tokens? |
+|---|---|---|
+| `CustomButton` | primario, oscuro, contorno, secundario y peligro; carga, deshabilitado e icono a la izquierda | Sí |
+| `CustomInput` | etiqueta, obligatorio `*`, contraseña con mostrar/ocultar, variantes relleno/borde, error e icono a la derecha | Sí |
+| `MetricCard` | etiqueta, cifra, sufijo y variación porcentual; ancho fijo opcional | Sí |
+| `OrbyLogo` | logotipo SVG, tamaño y texto opcional | **No:** `coloresMarca` (excepción de marca) |
+| `ScreenHeader` | botón de volver, título y espacio a la derecha | Sí |
+| `SegmentedTabs` | pastillas o pestañas; opciones genéricas por `id` | Sí |
+| `UserHeader` | avatar, saludo, nombre y rol; tamaño de avatar configurable | Sí |
+| `AdminBottomNav` | Inicio, Menú, Personal, Perfil y Salir | Sí |
+| `CocinaBottomNav` | Inicio, Comandas, Historial, Perfil y Salir | Sí |
+| `MeseroBottomNav` | Inicio, Notificaciones (con contador), Perfil y Salir | Sí |
+
+**Referencia del mockup.** El mockup usa estos nombres; no todos existen como archivos separados. Varios ya están cubiertos por la tabla de arriba (`Button` → `CustomButton`, `TextField` → `CustomInput`, `StatTile` → `MetricCard`, `BottomNav` → las tres barras por rol, `Avatar` → `UserHeader`).
 
 ### Base
 
