@@ -35,7 +35,7 @@ export default function AdminMenuScreen() {
   );
 
   const renderItemProducto = ({ item }: { item: Producto }) => (
-    <View style={[estilos.tarjetaProducto, { backgroundColor: colores.surface }]}>
+    <View style={[estilos.tarjetaProducto, { backgroundColor: colores.surface, borderColor: colores.text }]}>
       {/* Imagen o miniatura */}
       <View style={estilos.imagenContenedor}>
         {item.imagen_url ? (
@@ -45,7 +45,7 @@ export default function AdminMenuScreen() {
             contentFit="cover"
           />
         ) : (
-          <View style={[estilos.imagenFallback, { backgroundColor: '#E2ECE8' }]}>
+          <View style={[estilos.imagenFallback, { backgroundColor: colores.placeholder }]}>
             <Ionicons name="cafe-outline" size={28} color={colores.primary_strong} />
           </View>
         )}
@@ -71,8 +71,8 @@ export default function AdminMenuScreen() {
         <Switch
           value={item.estado}
           onValueChange={(nuevoValor) => cambiarEstadoProducto(item.id_producto, nuevoValor)}
-          trackColor={{ false: '#C7D1CD', true: '#419582' }}
-          thumbColor={Platform.OS === 'ios' ? undefined : '#FFFFFF'}
+          trackColor={{ false: colores.border_strong, true: colores.primary }}
+          thumbColor={Platform.OS === 'ios' ? undefined : colores.surface}
         />
       </View>
     </View>
@@ -100,18 +100,18 @@ export default function AdminMenuScreen() {
         {tabActual === 'productos' ? (
           <>
             {/* Buscador de producto */}
-            <View style={[estilos.buscadorContenedor, { backgroundColor: colores.surface }]}>
-              <Ionicons name="search" size={22} color="#1A1D1C" style={estilos.iconoBuscar} />
+            <View style={[estilos.buscadorContenedor, { backgroundColor: colores.surface, borderColor: colores.text }]}>
+              <Ionicons name="search" size={22} color={colores.text} style={estilos.iconoBuscar} />
               <TextInput
                 value={busqueda}
                 onChangeText={setBusqueda}
                 placeholder="Buscar producto"
-                placeholderTextColor="#7D8683"
-                style={estilos.inputBuscar}
+                placeholderTextColor={colores.text_muted}
+                style={[estilos.inputBuscar, { color: colores.text }]}
               />
               {busqueda.length > 0 && (
                 <TouchableOpacity onPress={() => setBusqueda('')}>
-                  <Ionicons name="close-circle" size={18} color="#7D8683" />
+                  <Ionicons name="close-circle" size={18} color={colores.text_muted} />
                 </TouchableOpacity>
               )}
             </View>
@@ -153,14 +153,14 @@ export default function AdminMenuScreen() {
                 key={cat}
                 style={[
                   estilos.tarjetaCategoria,
-                  { backgroundColor: colores.surface, borderColor: '#1A1D1C' },
+                  { backgroundColor: colores.surface, borderColor: colores.text },
                 ]}
               >
                 <Text style={[tipografia.cuerpo_fuerte, { color: colores.text }]}>
                   {index + 1}. {cat}
                 </Text>
-                <View style={estilos.chipActivo}>
-                  <Text style={estilos.textoChipActivo}>Activa</Text>
+                <View style={[estilos.chipActivo, { backgroundColor: colores.primary }]}>
+                  <Text style={[estilos.textoChipActivo, { color: colores.on_primary }]}>Activa</Text>
                 </View>
               </View>
             ))}
@@ -186,7 +186,6 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     height: 48,
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     borderRadius: 24,
     paddingHorizontal: espaciado.md,
     marginTop: espaciado.xs,
@@ -199,7 +198,6 @@ const estilos = StyleSheet.create({
     flex: 1,
     height: '100%',
     fontSize: 16,
-    color: '#1A1D1C',
   },
   lista: {
     paddingBottom: 80,
@@ -211,7 +209,6 @@ const estilos = StyleSheet.create({
     padding: espaciado.md,
     borderRadius: radios.xxl,
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     minHeight: 84,
   },
   imagenContenedor: {
@@ -284,13 +281,11 @@ const estilos = StyleSheet.create({
     borderWidth: 1.5,
   },
   chipActivo: {
-    backgroundColor: '#388D7A',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   textoChipActivo: {
-    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },

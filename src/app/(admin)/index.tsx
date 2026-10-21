@@ -25,6 +25,8 @@ export default function AdminHomeScreen() {
   const { usuario } = useAuth();
   const { estadisticas } = useCatalog();
 
+  const bordeTabla = { borderColor: colores.text };
+
   const handleDescargarReporte = () => {
     Alert.alert(
       'Descargar reporte',
@@ -61,36 +63,36 @@ export default function AdminHomeScreen() {
 
         {/* Tabla: Productos más vendidos */}
         <View style={estilos.seccionTabla}>
-          <View style={[estilos.tablaContenedor, { backgroundColor: colores.surface }]}>
+          <View style={[estilos.tablaContenedor, { backgroundColor: colores.surface, borderColor: colores.text }]}>
             {/* Cabecera de la tabla */}
-            <View style={estilos.tablaCabecera}>
-              <Text style={estilos.tablaTitulo}>Productos más vendidos</Text>
+            <View style={[estilos.tablaCabecera, { borderColor: colores.text, backgroundColor: colores.surface }]}>
+              <Text style={[estilos.tablaTitulo, { color: colores.text }]}>Productos más vendidos</Text>
             </View>
 
             {/* Filas con datos */}
             {estadisticas.productos_mas_vendidos.map((prod) => (
-              <View key={prod.posicion} style={estilos.filaTabla}>
-                <View style={estilos.celdaPosicion}>
-                  <Text style={estilos.textoCelda}>{prod.posicion}.</Text>
+              <View key={prod.posicion} style={[estilos.filaTabla, bordeTabla]}>
+                <View style={[estilos.celdaPosicion, bordeTabla]}>
+                  <Text style={[estilos.textoCelda, { color: colores.text }]}>{prod.posicion}.</Text>
                 </View>
-                <View style={estilos.celdaNombre}>
-                  <Text style={estilos.textoCelda}>{prod.nombre}</Text>
+                <View style={[estilos.celdaNombre, bordeTabla]}>
+                  <Text style={[estilos.textoCelda, { color: colores.text }]}>{prod.nombre}</Text>
                 </View>
                 <View style={estilos.celdaCantidad}>
-                  <Text style={estilos.textoCelda}>{prod.cantidad}</Text>
+                  <Text style={[estilos.textoCelda, { color: colores.text }]}>{prod.cantidad}</Text>
                 </View>
               </View>
             ))}
 
             {/* Filas vacías estéticas como en el mockup */}
-            <View style={estilos.filaTabla}>
-              <View style={estilos.celdaPosicion} />
-              <View style={estilos.celdaNombre} />
+            <View style={[estilos.filaTabla, bordeTabla]}>
+              <View style={[estilos.celdaPosicion, bordeTabla]} />
+              <View style={[estilos.celdaNombre, bordeTabla]} />
               <View style={estilos.celdaCantidad} />
             </View>
-            <View style={[estilos.filaTabla, { borderBottomWidth: 0 }]}>
-              <View style={estilos.celdaPosicion} />
-              <View style={estilos.celdaNombre} />
+            <View style={[estilos.filaTabla, bordeTabla, { borderBottomWidth: 0 }]}>
+              <View style={[estilos.celdaPosicion, bordeTabla]} />
+              <View style={[estilos.celdaNombre, bordeTabla]} />
               <View style={estilos.celdaCantidad} />
             </View>
           </View>
@@ -114,7 +116,7 @@ export default function AdminHomeScreen() {
               { backgroundColor: colores.primary_soft, borderColor: colores.border_strong },
             ]}
           >
-            <View style={estilos.iconoPersonalContenedor}>
+            <View style={[estilos.iconoPersonalContenedor, { backgroundColor: colores.surface }]}>
               <Ionicons name="people" size={28} color={colores.primary_strong} />
             </View>
             <View style={{ flex: 1 }}>
@@ -155,33 +157,27 @@ const estilos = StyleSheet.create({
   },
   tablaContenedor: {
     borderWidth: 2,
-    borderColor: '#1A1D1C',
     borderRadius: 2,
     overflow: 'hidden',
   },
   tablaCabecera: {
     borderBottomWidth: 2,
-    borderColor: '#1A1D1C',
     paddingVertical: 10,
     paddingHorizontal: espaciado.md,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
   },
   tablaTitulo: {
     fontFamily: fuentes.bold,
     fontSize: 20,
-    color: '#1A1D1C',
   },
   filaTabla: {
     flexDirection: 'row',
     borderBottomWidth: 1.5,
-    borderColor: '#1A1D1C',
     minHeight: 34,
   },
   celdaPosicion: {
     width: 60,
     borderRightWidth: 1.5,
-    borderColor: '#1A1D1C',
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 4,
@@ -189,7 +185,6 @@ const estilos = StyleSheet.create({
   celdaNombre: {
     flex: 1,
     borderRightWidth: 1.5,
-    borderColor: '#1A1D1C',
     justifyContent: 'center',
     paddingHorizontal: espaciado.md,
     paddingVertical: 4,
@@ -203,7 +198,6 @@ const estilos = StyleSheet.create({
   textoCelda: {
     fontFamily: fuentes.bold,
     fontSize: 17,
-    color: '#1A1D1C',
   },
   seccionAcciones: {
     marginTop: espaciado.xl,
@@ -226,7 +220,6 @@ const estilos = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },

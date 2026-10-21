@@ -90,11 +90,11 @@ export default function AdminProfileScreen() {
         >
           {/* Avatar ilustrado */}
           <View style={estilos.avatarContenedor}>
-            <View style={[estilos.avatarCirculo, { backgroundColor: '#548275' }]}>
+            <View style={[estilos.avatarCirculo, { backgroundColor: colores.avatar }]}>
               {/* Ilustración de avatar con traje y corbata */}
-              <Ionicons name="person" size={110} color="#E8F1ED" style={estilos.iconoAvatar} />
-              <View style={estilos.corbataBadge}>
-                <Ionicons name="shield-checkmark" size={26} color="#FFFFFF" />
+              <Ionicons name="person" size={110} color={colores.text_secondary} style={estilos.iconoAvatar} />
+              <View style={[estilos.corbataBadge, { backgroundColor: colores.danger }]}>
+                <Ionicons name="shield-checkmark" size={26} color={colores.on_danger} />
               </View>
             </View>
           </View>
@@ -175,7 +175,6 @@ const estilos = StyleSheet.create({
   corbataBadge: {
     position: 'absolute',
     bottom: 8,
-    backgroundColor: '#C53030',
     padding: 4,
     borderRadius: 14,
   },

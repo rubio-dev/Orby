@@ -101,10 +101,10 @@ export default function AdminNewProductScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleSeleccionarImagen}
-            style={[estilos.cajaImagen, { backgroundColor: colores.surface }]}
+            style={[estilos.cajaImagen, { backgroundColor: colores.surface, borderColor: colores.text }]}
           >
-            <Ionicons name="add" size={44} color="#7E8884" />
-            <Text style={[estilos.textoAgregarImagen, { color: '#7E8884' }]}>
+            <Ionicons name="add" size={44} color={colores.text_muted} />
+            <Text style={[estilos.textoAgregarImagen, { color: colores.text_muted }]}>
               Agregar imagen
             </Text>
           </TouchableOpacity>
@@ -118,8 +118,8 @@ export default function AdminNewProductScreen() {
               value={nombre}
               onChangeText={setNombre}
               placeholder="Ej. Latte"
-              placeholderTextColor="#A1ABA7"
-              style={[estilos.inputBorde, { backgroundColor: colores.surface }]}
+              placeholderTextColor={colores.text_muted}
+              style={[estilos.inputBorde, { backgroundColor: colores.surface, borderColor: colores.text, color: colores.text }]}
             />
           </View>
 
@@ -132,9 +132,9 @@ export default function AdminNewProductScreen() {
               value={precio}
               onChangeText={setPrecio}
               placeholder="Ej. $80"
-              placeholderTextColor="#A1ABA7"
+              placeholderTextColor={colores.text_muted}
               keyboardType="numeric"
-              style={[estilos.inputBorde, { backgroundColor: colores.surface }]}
+              style={[estilos.inputBorde, { backgroundColor: colores.surface, borderColor: colores.text, color: colores.text }]}
             />
           </View>
 
@@ -146,12 +146,12 @@ export default function AdminNewProductScreen() {
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setModalCategoriaAbierto(true)}
-              style={[estilos.inputBorde, estilos.selectorDropdown, { backgroundColor: colores.surface }]}
+              style={[estilos.inputBorde, estilos.selectorDropdown, { backgroundColor: colores.surface, borderColor: colores.text }]}
             >
               <Text style={{ fontSize: 16, color: colores.text }}>
                 {categoriaObj ? `Ej. ${categoriaObj.nombre_categoria}` : 'Seleccionar categoría'}
               </Text>
-              <Ionicons name="chevron-down" size={22} color="#1A1D1C" />
+              <Ionicons name="chevron-down" size={22} color={colores.text} />
             </TouchableOpacity>
           </View>
 
@@ -171,10 +171,10 @@ export default function AdminNewProductScreen() {
               numberOfLines={4}
               maxLength={200}
               placeholder="Ej. bebida de café hecha con una dosis de espresso y una gran porción de leche vaporizada, coronada con una capa fina de microespuma."
-              placeholderTextColor="#A1ABA7"
-              style={[estilos.inputBorde, estilos.textArea, { backgroundColor: colores.surface }]}
+              placeholderTextColor={colores.text_muted}
+              style={[estilos.inputBorde, estilos.textArea, { backgroundColor: colores.surface, borderColor: colores.text, color: colores.text }]}
             />
-            <Text style={[estilos.contadorCaracteres, { color: '#88938F' }]}>
+            <Text style={[estilos.contadorCaracteres, { color: colores.text_muted }]}>
               {descripcion.length}/200
             </Text>
           </View>
@@ -187,8 +187,8 @@ export default function AdminNewProductScreen() {
             <Switch
               value={estado}
               onValueChange={setEstado}
-              trackColor={{ false: '#C7D1CD', true: '#419582' }}
-              thumbColor={Platform.OS === 'ios' ? undefined : '#FFFFFF'}
+              trackColor={{ false: colores.border_strong, true: colores.primary }}
+              thumbColor={Platform.OS === 'ios' ? undefined : colores.surface}
             />
           </View>
 
@@ -213,12 +213,12 @@ export default function AdminNewProductScreen() {
         onRequestClose={() => setModalCategoriaAbierto(false)}
       >
         <TouchableOpacity
-          style={estilos.modalOverlay}
+          style={[estilos.modalOverlay, { backgroundColor: colores.overlay }]}
           activeOpacity={1}
           onPress={() => setModalCategoriaAbierto(false)}
         >
           <View style={[estilos.modalContenido, { backgroundColor: colores.surface }]}>
-            <Text style={[tipografia.titulo, { marginBottom: espaciado.md }]}>
+            <Text style={[tipografia.titulo, { color: colores.text, marginBottom: espaciado.md }]}>
               Selecciona una categoría
             </Text>
             {categorias.map((cat) => (
@@ -227,7 +227,7 @@ export default function AdminNewProductScreen() {
                 style={[
                   estilos.opcionCategoria,
                   cat.id_categoria === categoriaSeleccionada
-                    ? { backgroundColor: '#E2ECE8' }
+                    ? { backgroundColor: colores.primary_soft }
                     : null,
                 ]}
                 onPress={() => {
@@ -269,7 +269,6 @@ const estilos = StyleSheet.create({
   cajaImagen: {
     height: 140,
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     borderRadius: radios.xxl,
     alignItems: 'center',
     justifyContent: 'center',
@@ -290,12 +289,10 @@ const estilos = StyleSheet.create({
   },
   inputBorde: {
     borderWidth: 1.5,
-    borderColor: '#1A1D1C',
     borderRadius: radios.lg,
     minHeight: 48,
     paddingHorizontal: espaciado.md,
     fontSize: 16,
-    color: '#1A1D1C',
   },
   selectorDropdown: {
     flexDirection: 'row',
@@ -329,7 +326,6 @@ const estilos = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: espaciado.lg,

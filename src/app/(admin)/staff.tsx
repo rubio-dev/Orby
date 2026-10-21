@@ -104,11 +104,11 @@ export default function AdminStaffScreen() {
 
   const renderItemEmpleado = ({ item }: { item: Usuario }) => {
     const esMesero = item.rol === 'mesero';
-    const colorBadge = esMesero ? '#388D7A' : '#C27803';
+    const colorBadge = esMesero ? colores.primary : colores.warning;
 
     return (
-      <View style={[estilos.tarjetaEmpleado, { backgroundColor: colores.surface, borderColor: '#1A1D1C' }]}>
-        <View style={[estilos.avatarPequeno, { backgroundColor: esMesero ? '#DCEBE6' : '#F7EDD8' }]}>
+      <View style={[estilos.tarjetaEmpleado, { backgroundColor: colores.surface, borderColor: colores.text }]}>
+        <View style={[estilos.avatarPequeno, { backgroundColor: esMesero ? colores.primary_soft : colores.warning_soft }]}>
           <Ionicons
             name={esMesero ? 'receipt-outline' : 'restaurant-outline'}
             size={24}
@@ -122,7 +122,9 @@ export default function AdminStaffScreen() {
               {item.nombre}
             </Text>
             <View style={[estilos.chipRol, { backgroundColor: colorBadge }]}>
-              <Text style={estilos.textoChipRol}>{item.rol.toUpperCase()}</Text>
+              <Text style={[estilos.textoChipRol, { color: esMesero ? colores.on_primary : colores.on_warning }]}>
+                {item.rol.toUpperCase()}
+              </Text>
             </View>
           </View>
           <Text style={[tipografia.detalle, { color: colores.text_muted, marginTop: 2 }]}>
@@ -218,19 +220,19 @@ export default function AdminStaffScreen() {
                     style={[
                       estilos.cardRol,
                       rolSeleccionado === 'mesero'
-                        ? { borderColor: '#388D7A', backgroundColor: '#E8F5F1' }
-                        : { borderColor: '#1A1D1C', backgroundColor: colores.surface },
+                        ? { borderColor: colores.primary, backgroundColor: colores.primary_soft }
+                        : { borderColor: colores.text, backgroundColor: colores.surface },
                     ]}
                   >
                     <Ionicons
                       name="receipt-outline"
                       size={26}
-                      color={rolSeleccionado === 'mesero' ? '#388D7A' : '#1A1D1C'}
+                      color={rolSeleccionado === 'mesero' ? colores.primary : colores.text}
                     />
                     <Text
                       style={[
                         estilos.textoRol,
-                        { color: rolSeleccionado === 'mesero' ? '#388D7A' : '#1A1D1C' },
+                        { color: rolSeleccionado === 'mesero' ? colores.primary : colores.text },
                       ]}
                     >
                       Mesero
@@ -246,19 +248,19 @@ export default function AdminStaffScreen() {
                     style={[
                       estilos.cardRol,
                       rolSeleccionado === 'cocina'
-                        ? { borderColor: '#C27803', backgroundColor: '#FDF7EB' }
-                        : { borderColor: '#1A1D1C', backgroundColor: colores.surface },
+                        ? { borderColor: colores.warning, backgroundColor: colores.warning_soft }
+                        : { borderColor: colores.text, backgroundColor: colores.surface },
                     ]}
                   >
                     <Ionicons
                       name="restaurant-outline"
                       size={26}
-                      color={rolSeleccionado === 'cocina' ? '#C27803' : '#1A1D1C'}
+                      color={rolSeleccionado === 'cocina' ? colores.warning : colores.text}
                     />
                     <Text
                       style={[
                         estilos.textoRol,
-                        { color: rolSeleccionado === 'cocina' ? '#C27803' : '#1A1D1C' },
+                        { color: rolSeleccionado === 'cocina' ? colores.warning : colores.text },
                       ]}
                     >
                       Cocinero
@@ -366,7 +368,6 @@ const estilos = StyleSheet.create({
     borderRadius: 8,
   },
   textoChipRol: {
-    color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '700',
   },
