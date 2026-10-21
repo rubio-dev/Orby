@@ -1,11 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import React from 'react';
 import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,11 +13,10 @@ import { MetricCard } from '@/components/MetricCard';
 import { UserHeader } from '@/components/UserHeader';
 import { useAuth } from '@/context/auth-context';
 import { useCatalog } from '@/context/catalog-context';
-import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme';
+import { espaciado, fuentes, useTema } from '@/theme';
 import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
 
 export default function AdminHomeScreen() {
-  const router = useRouter();
   const { colores } = useTema();
   const { usuario } = useAuth();
   const { estadisticas } = useCatalog();
@@ -98,7 +94,7 @@ export default function AdminHomeScreen() {
           </View>
         </View>
 
-        {/* Botón Descargar reporte */}
+        {/* Botón Descargar reporte (la gestión de personal está en la pestaña "Personal" de la barra inferior) */}
         <View style={estilos.seccionAcciones}>
           <CustomButton
             titulo="Descargar reporte"
@@ -107,28 +103,6 @@ export default function AdminHomeScreen() {
             estilo={estilos.botonReporte}
           />
 
-          {/* Tarjeta de acceso rápido a registrar cocineros y meseros */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.push('/(admin)/staff')}
-            style={[
-              estilos.tarjetaPersonal,
-              { backgroundColor: colores.primary_soft, borderColor: colores.border_strong },
-            ]}
-          >
-            <View style={[estilos.iconoPersonalContenedor, { backgroundColor: colores.surface }]}>
-              <Ionicons name="people" size={28} color={colores.primary_strong} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[tipografia.cuerpo_fuerte, { color: colores.primary_strong }]}>
-                Gestión de Personal
-              </Text>
-              <Text style={[tipografia.detalle, { color: colores.text_secondary }]}>
-                Registrar nuevos cocineros y meseros
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={22} color={colores.primary_strong} />
-          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -206,22 +180,6 @@ const estilos = StyleSheet.create({
   botonReporte: {
     height: 52,
     borderRadius: 26,
-  },
-  tarjetaPersonal: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: espaciado.md,
-    borderRadius: radios.lg,
-    borderWidth: 1,
-    gap: espaciado.md,
-    marginTop: espaciado.xs,
-  },
-  iconoPersonalContenedor: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
 
