@@ -18,6 +18,8 @@
 
 1. **Todo lo que empieza con `EXPO_PUBLIC_` termina dentro de la app** y cualquiera puede extraerlo del instalable. Ahí solo va la URL y la llave pública.
 2. **Toda tabla expuesta lleva RLS activado.** La llave pública le da acceso a la API a cualquiera; lo único que protege los datos son las reglas de RLS.
+
+   > **Estado actual (2026-10-20):** las políticas de `supabase/migrations/20261021000000_politicas_rls.sql` son permisivas (`true`). Falta el RLS por rol; ver [open-questions](open-questions.md#técnico).
 3. **Lo que necesite la llave secreta va en una Edge Function**, nunca en la app. Por ejemplo, crear cuentas de empleados.
 4. **Los archivos `.env*` no se suben.** Solo se versiona `.env.example`, sin valores reales.
 5. **Los secretos en la nube se cargan por el panel o por CLI**, nunca en archivos del repo:
