@@ -1,18 +1,23 @@
-import { Stack } from 'expo-router';
+import { Stack } from 'expo-router'; // Navegación en pila de Expo Router
 import React from 'react';
-import { useTema } from '@/theme';
 
+import { GuardiaRol } from '@/components/GuardiaRol'; // Protección por rol
+import { useTema } from '@/theme'; // Tema activo
+
+// LAYOUT DEL GRUPO (admin)
+// Todas sus pantallas quedan protegidas: solo entra el rol 'administrador'
 export default function AdminLayout() {
   const { colores } = useTema();
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: colores.background },
-        animation: 'slide_from_right',
-      }}
-    />
+    <GuardiaRol rol="administrador">
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colores.background },
+          animation: 'slide_from_right',
+        }}
+      />
+    </GuardiaRol>
   );
 }
-

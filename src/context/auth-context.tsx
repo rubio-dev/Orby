@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
+import { registrar_empleado_supabase, traducir_error } from '@/lib/auth'; // Alta real de empleados y mensajes de error en español
 import { supabase_configurado } from '@/lib/env';
 import { obtener_supabase } from '@/lib/supabase';
 import { ID_ROLES, NOMBRES_ROLES, type RolUsuario, type Usuario } from '@/types';
@@ -219,31 +220,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rol: datos.rol,
     };
 
-    // 2. Si Supabase está disponible, invocar la Edge Function privilegiada 'registrar-empleado'
+    // 2. Si Supabase está disponible, se crea la cuenta REAL del empleado (auth.users + public.usuario).
+    //    Antes se llamaba a la Edge Function 'registrar-empleado'; si no está desplegada, el empleado
+    //    solo quedaba guardado en el teléfono y después no podía iniciar sesión.
+    //    Mientras se despliega, se usa un cliente temporal (ver src/lib/auth.ts).
     if (supabase_configurado) {
-      try {
-        const supabase = obtener_supabase();
-        const { data: edgeData, error: edgeError } = await supabase.functions.invoke('registrar-empleado', {
-          body: {
-            nombre: datos.nombre.trim(),
-            correo: correoNormalizado,
-            contrasena: datos.contrasena,
-            rol: datos.rol,
-          },
-        });
-
-        if (edgeError) {
-          console.warn('Edge Function no disponible o error:', edgeError.message);
-          // Si el servidor backend responde con un error de negocio
-          if (edgeData?.error) {
-            return { exito: false, error: edgeData.error };
-          }
-        } else if (edgeData?.usuario?.id_usuario) {
-          nuevoEmpleado.id_usuario = edgeData.usuario.id_usuario;
-        }
-      } catch (err: any) {
-        console.warn('Conexión con Edge Function falló, registrando en estado local de desarrollo:', err?.message);
+      if (datos.rol !== 'mesero' && datos.rol !== 'cocina') {
+        return { exito: false, error: 'Solo se puede registrar a meseros o cocina.' };
       }
+
+      const resultado = await registrar_empleado_supabase({
+        nombre: datos.nombre,
+        correo: correoNormalizado,
+        contrasena: datos.contrasena,
+        rol: datos.rol,
+        id_cafeteria: usuario.id_cafeteria, // La cafetería del administrador que lo registra
+      });
+
+      // Si Supabase rechazó el registro, se avisa y NO se agrega a la lista
+      if (resultado.error || !resultado.id_usuario) {
+        return { exito: false, error: resultado.error ?? 'No se pudo registrar al empleado.' };
+      }
+
+      nuevoEmpleado.id_usuario = resultado.id_usuario; // Mismo UUID que en auth.users
     }
 
     const nuevaLista = [nuevoEmpleado, ...listaPersonal];
@@ -296,74 +295,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let idUsuarioFinal = `adm-${Date.now()}`;
     let idCafeteriaFinal = `caf-${Date.now()}`;
 
-    // 1. Inserción en Supabase si está configurado
+    // 1. Registro en Supabase si está configurado
+    // signUp guarda el correo y la contraseña cifrada en auth.users. Los datos extra van en 'data'
+    // (metadatos) y la función handle_new_user crea la cafetería y el perfil en public.usuario
+    // con el mismo UUID. Si algo falla, se avisa: NO se inicia una sesión falsa.
     if (supabase_configurado) {
-      try {
-        const supabase = obtener_supabase();
+      const supabase = obtener_supabase();
 
-        // 1.1 Inserción en auth.users con metadatos para el trigger de Supabase
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: correoNormalizado,
-          password: contrasena,
-          options: {
-            data: {
-              rol: 'administrador',
-              nombre,
-              nombre_cafeteria: nombreCafeteria,
-            },
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: correoNormalizado,
+        password: contrasena,
+        options: {
+          data: {
+            rol: 'administrador', // Texto exacto de la tabla role
+            nombre,
+            nombre_cafeteria: nombreCafeteria,
           },
-        });
+        },
+      });
 
-        if (authError) {
-          if (authError.message.toLowerCase().includes('already registered')) {
-            return { exito: false, error: 'Este correo electrónico ya se encuentra registrado.' };
-          }
-          console.warn('Error en supabase.auth.signUp:', authError.message);
-        } else if (authData.user) {
-          idUsuarioFinal = authData.user.id;
-
-          // 1.2 Verificar si el trigger 'handle_new_user' creó las inserciones en 'cafeteria' y 'usuario'
-          try {
-            const { data: usuarioDb } = await supabase
-              .from('usuario')
-              .select('id_usuario, id_cafeteria')
-              .eq('id_usuario', authData.user.id)
-              .maybeSingle();
-
-            if (usuarioDb) {
-              idCafeteriaFinal = usuarioDb.id_cafeteria;
-            } else {
-              // Inserción explícita en 'cafeteria'
-              const { data: nuevaCafeteria } = await supabase
-                .from('cafeteria')
-                .insert({
-                  nombre_cafeteria: nombreCafeteria,
-                  id_estado: 1, // activa
-                })
-                .select('id_cafeteria')
-                .maybeSingle();
-
-              if (nuevaCafeteria?.id_cafeteria) {
-                idCafeteriaFinal = nuevaCafeteria.id_cafeteria;
-              }
-
-              // Inserción explícita en 'usuario'
-              await supabase
-                .from('usuario')
-                .insert({
-                  id_usuario: authData.user.id,
-                  id_cafeteria: idCafeteriaFinal,
-                  nombre,
-                  id_rol: 1, // 1 = administrador
-                });
-            }
-          } catch (dbErr: any) {
-            console.warn('Inserción secundaria en tablas usuario/cafeteria:', dbErr?.message);
-          }
-        }
-      } catch (err: any) {
-        console.warn('Conexión con Supabase no disponible (registrando localmente):', err?.message);
+      if (authError || !authData.user) {
+        return { exito: false, error: traducir_error(authError) };
       }
+
+      // Si el proyecto pide confirmar el correo, la cuenta se crea pero no hay sesión todavía
+      if (!authData.session) {
+        return {
+          exito: false,
+          error: 'Cuenta creada. Confirma tu correo y después inicia sesión.',
+        };
+      }
+
+      // Leer el perfil que creó la función handle_new_user para obtener la cafetería real
+      const { data: usuarioDb, error: usuarioError } = await supabase
+        .from('usuario')
+        .select('id_usuario, id_cafeteria')
+        .eq('id_usuario', authData.user.id)
+        .maybeSingle();
+
+      if (usuarioError || !usuarioDb) {
+        return {
+          exito: false,
+          error: 'La cuenta se creó, pero no se pudo leer tu perfil. Revisa las políticas RLS de la tabla usuario.',
+        };
+      }
+
+      idUsuarioFinal = usuarioDb.id_usuario;
+      idCafeteriaFinal = usuarioDb.id_cafeteria;
     }
 
     // 2. Crear sesión activa del nuevo administrador y persistir

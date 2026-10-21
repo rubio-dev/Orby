@@ -3,7 +3,6 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
   FlatList,
   Modal,
   StyleSheet,
@@ -19,6 +18,7 @@ import { useCatalog } from '@/context/catalog-context';
 import { useOrders } from '@/context/orders-context';
 import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme';
 import type { Producto } from '@/types';
+import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
 
 export default function MeseroNewOrderScreen() {
   const router = useRouter();
@@ -44,12 +44,12 @@ export default function MeseroNewOrderScreen() {
       especificaciones: '',
       imagen_url: p.imagen_url,
     });
-    Alert.alert('Agregado', `${p.nombre_producto} se agregó al pedido de la Mesa ${mesaSeleccionada}.`);
+    mostrarAviso('Agregado', `${p.nombre_producto} se agregó al pedido de la Mesa ${mesaSeleccionada}.`);
   };
 
   const handleIrAlResumen = () => {
     if (carrito.length === 0) {
-      Alert.alert('Pedido vacío', 'Selecciona al menos un producto para continuar.');
+      mostrarAviso('Pedido vacío', 'Selecciona al menos un producto para continuar.');
       return;
     }
     router.push('/(mesero)/order-summary');

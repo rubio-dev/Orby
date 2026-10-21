@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -17,6 +16,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { useOrders } from '@/context/orders-context';
 import { espaciado, fuentes, radios, useTema } from '@/theme';
 import type { DetalleComanda } from '@/types';
+import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
 
 export default function CocinaOrderDetailScreen() {
   const router = useRouter();
@@ -53,7 +53,7 @@ export default function CocinaOrderDetailScreen() {
   );
 
   const handleCompletarOrden = async () => {
-    Alert.alert(
+    mostrarAviso(
       'Completar orden',
       `¿Marcar la orden de la Mesa ${comanda.num_mesa} como lista? Se enviará aviso inmediato al mesero.`,
       [
@@ -63,7 +63,7 @@ export default function CocinaOrderDetailScreen() {
           style: 'default',
           onPress: async () => {
             await completarComanda(comanda.id_comanda);
-            Alert.alert(
+            mostrarAviso(
               '¡Orden Lista!',
               `Se ha notificado al mesero que el pedido de la Mesa ${comanda.num_mesa} está listo para servirse.`,
               [{ text: 'Aceptar', onPress: () => router.replace('/(cocina)/orders') }]

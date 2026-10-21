@@ -1,8 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { Ionicons } from '@expo/vector-icons'; // Íconos (alerta de error)
+import { useRouter } from 'expo-router'; // Navegación de Expo Router
+import React, { useState } from 'react'; // Estado de React
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -10,43 +9,43 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from 'react-native'; // Componentes base de React Native
+import { SafeAreaView } from 'react-native-safe-area-context'; // Respeta el notch y la barra del sistema
 
-import { CustomButton } from '@/components/CustomButton';
-import { CustomInput } from '@/components/CustomInput';
-import { OrbyLogo } from '@/components/OrbyLogo';
-import { useAuth } from '@/context/auth-context';
-import { espaciado, fuentes, tipografia, useTema } from '@/theme';
-import type { RolUsuario } from '@/types';
+import { CustomButton } from '@/components/CustomButton'; // Botón del diseño Orby
+import { CustomInput } from '@/components/CustomInput'; // Campo con etiqueta y ojito para contraseña
+import { OrbyLogo } from '@/components/OrbyLogo'; // Logo de la taza en órbita
+import { useAuth } from '@/context/auth-context'; // Sesión y roles
+import { validar_correo } from '@/lib/auth'; // Validación de correo
+import { espaciado, fuentes, tipografia, useTema } from '@/theme'; // Tema activo y tokens
+import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
 
-type ModoPantalla = 'iniciar_sesion' | 'registrar_admin';
-
+// PANTALLA DE INICIO DE SESIÓN ("/login")
+// Un solo login para los 3 roles. Al entrar, se lee el rol en public.usuario
+// y se manda a cada quien a su panel: administrador, mesero o cocina.
+// El registro de cafeterías nuevas está en otra pantalla: src/app/registro.tsx
 export default function LoginScreen() {
   const router = useRouter();
   const { colores } = useTema();
-  const { iniciarSesion, registrarAdministrador, seleccionarUsuarioDemo } = useAuth();
+  const { iniciarSesion } = useAuth();
 
-  const [modo, setModo] = useState<ModoPantalla>('iniciar_sesion');
-
-  // Campos de inicio de sesión
+  // Datos del formulario
   const [correo, setCorreo] = useState('');
   const [contrasena, setContrasena] = useState('');
 
-  // Campos de registro de Administrador y Cafetería
-  const [nombreAdmin, setNombreAdmin] = useState('');
-  const [nombreCafeteria, setNombreCafeteria] = useState('');
-  const [correoAdmin, setCorreoAdmin] = useState('');
-  const [contrasenaAdmin, setContrasenaAdmin] = useState('');
-  const [confirmarContrasena, setConfirmarContrasena] = useState('');
-
+  // Estado de la pantalla
   const [cargando, setCargando] = useState(false);
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
 
-  // Iniciar sesión compartido para todos los roles
+  // Valida los campos, inicia sesión y redirige según el rol
   const handleIniciarSesion = async () => {
-    if (!correo.trim() || !contrasena.trim()) {
-      setErrorMensaje('Por favor ingresa tu correo y contraseña.');
+    if (!validar_correo(correo)) {
+      setErrorMensaje('Escribe un correo válido, por ejemplo nombre@ejemplo.com.');
+      return;
+    }
+
+    if (!contrasena) {
+      setErrorMensaje('Escribe tu contraseña.');
       return;
     }
 
@@ -57,7 +56,7 @@ export default function LoginScreen() {
       const resultado = await iniciarSesion(correo, contrasena);
 
       if (resultado.exito && resultado.rol) {
-        // Redirigir según el rol real obtenido del perfil autenticado
+        // Redirigir según el rol real obtenido del perfil (tabla usuario -> id_rol)
         if (resultado.rol === 'administrador') {
           router.replace('/(admin)' as any);
         } else if (resultado.rol === 'cocina') {
@@ -66,382 +65,131 @@ export default function LoginScreen() {
           router.replace('/(mesero)' as any);
         }
       } else {
-        setErrorMensaje(resultado.error ?? 'Credenciales incorrectas');
+        setErrorMensaje(resultado.error ?? 'Correo o contraseña incorrectos.');
       }
     } catch {
-      setErrorMensaje('Ocurrió un error al intentar iniciar sesión');
+      setErrorMensaje('Ocurrió un error al intentar iniciar sesión.');
     } finally {
       setCargando(false);
     }
   };
 
-  // Registro real del Administrador y Cafetería en Supabase
-  const handleRegistrarAdministrador = async () => {
-    if (
-      !nombreAdmin.trim() ||
-      !nombreCafeteria.trim() ||
-      !correoAdmin.trim() ||
-      !contrasenaAdmin.trim() ||
-      !confirmarContrasena.trim()
-    ) {
-      setErrorMensaje('Por favor completa todos los campos del registro.');
-      return;
-    }
-
-    if (contrasenaAdmin.length < 6) {
-      setErrorMensaje('La contraseña debe tener al menos 6 caracteres.');
-      return;
-    }
-
-    if (contrasenaAdmin !== confirmarContrasena) {
-      setErrorMensaje('Las contraseñas no coinciden.');
-      return;
-    }
-
-    setErrorMensaje(null);
-    setCargando(true);
-
-    try {
-      const resultado = await registrarAdministrador({
-        nombre: nombreAdmin,
-        nombreCafeteria: nombreCafeteria,
-        correo: correoAdmin,
-        contrasena: contrasenaAdmin,
-      });
-
-      if (resultado.exito) {
-        Alert.alert(
-          '¡Registro exitoso!',
-          `Bienvenido a Orby. Tu cafetería "${nombreCafeteria.trim()}" y cuenta de Administrador han sido registradas.`,
-          [
-            {
-              text: 'Entrar al panel',
-              onPress: () => router.replace('/(admin)' as any),
-            },
-          ]
-        );
-      } else {
-        setErrorMensaje(resultado.error ?? 'No se pudo completar el registro del administrador.');
-      }
-    } catch (err: any) {
-      setErrorMensaje(err?.message ?? 'Ocurrió un error al procesar el registro.');
-    } finally {
-      setCargando(false);
-    }
-  };
-
-  const handleAccesoRapido = async (rol: RolUsuario) => {
-    setCargando(true);
-    await seleccionarUsuarioDemo(rol);
-    setCargando(false);
-
-    if (rol === 'administrador') {
-      router.replace('/(admin)' as any);
-    } else if (rol === 'mesero') {
-      router.replace('/(mesero)' as any);
-    } else if (rol === 'cocina') {
-      router.replace('/(cocina)' as any);
-    }
-  };
-
+  // La contraseña la restablece el administrador (no hay recuperación por correo todavía)
   const handleOlvidoContrasena = () => {
-    Alert.alert(
+    mostrarAviso(
       '¿Olvidaste tu contraseña?',
       'Por favor contacta al administrador de tu cafetería para restablecer tu contraseña.',
       [{ text: 'Entendido' }]
     );
   };
 
+  // Explica cómo obtienen su cuenta los meseros y cocina
   const handleContactarAdmin = () => {
-    Alert.alert(
+    mostrarAviso(
       'Acceso de personal',
-      'Las cuentas para meseros y cocineros son dadas de alta directamente por el Administrador desde el apartado "Personal" en su panel.',
+      'Las cuentas para meseros y cocina las da de alta el Administrador desde el apartado "Personal" de su panel.',
       [{ text: 'Aceptar' }]
     );
   };
 
   return (
     <SafeAreaView style={[estilos.pantalla, { backgroundColor: colores.background_auth }]}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={estilos.scroll}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="handled" // Permite tocar botones sin cerrar antes el teclado
           showsVerticalScrollIndicator={false}
         >
-          {/* Logo compacto superior */}
+          {/* Logo de Orby */}
           <View style={estilos.logoContenedor}>
             <OrbyLogo size={130} showText={false} />
           </View>
 
-          {/* Título de bienvenida */}
+          {/* Bienvenida */}
           <View style={estilos.encabezado}>
-            <Text style={[estilos.titulo, { color: colores.text }]}>
-              {modo === 'iniciar_sesion' ? 'Bienvenido a Orby' : 'Nueva Cafetería'}
-            </Text>
-            <Text style={[estilos.subtitulo, { color: colores.text_secondary }]}>
-              {modo === 'iniciar_sesion'
-                ? 'Tu cafetería en órbita'
-                : 'Registra tu cuenta de administrador'}
-            </Text>
+            <Text style={[estilos.titulo, { color: colores.text }]}>Bienvenido a Orby</Text>
+            <Text style={[estilos.subtitulo, { color: colores.text_secondary }]}>Tu cafetería en órbita</Text>
           </View>
 
-          {/* Selector de modo: Iniciar sesión vs Registrar Administrador */}
-          <View style={[estilos.pestañasContenedor, { backgroundColor: colores.surface_muted }]}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                setModo('iniciar_sesion');
-                setErrorMensaje(null);
-              }}
-              style={[
-                estilos.pestañaBoton,
-                modo === 'iniciar_sesion' && { backgroundColor: colores.primary },
-              ]}
-            >
-              <Text
-                style={[
-                  estilos.pestañaTexto,
-                  {
-                    color:
-                      modo === 'iniciar_sesion' ? colores.on_primary : colores.text_secondary,
-                    fontWeight: modo === 'iniciar_sesion' ? '700' : '500',
-                  },
-                ]}
-              >
-                Iniciar sesión
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                setModo('registrar_admin');
-                setErrorMensaje(null);
-              }}
-              style={[
-                estilos.pestañaBoton,
-                modo === 'registrar_admin' && { backgroundColor: colores.primary },
-              ]}
-            >
-              <Text
-                style={[
-                  estilos.pestañaTexto,
-                  {
-                    color:
-                      modo === 'registrar_admin' ? colores.on_primary : colores.text_secondary,
-                    fontWeight: modo === 'registrar_admin' ? '700' : '500',
-                  },
-                ]}
-              >
-                Registrar Admin
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Formulario */}
           <View style={estilos.formulario}>
+            {/* Mensaje de error */}
             {errorMensaje && (
               <View style={[estilos.cajaError, { backgroundColor: colores.danger_soft }]}>
                 <Ionicons name="alert-circle" size={18} color={colores.danger} style={{ marginRight: 6 }} />
-                <Text style={[estilos.errorTexto, { color: colores.danger }]}>
-                  {errorMensaje}
-                </Text>
+                <Text style={[estilos.errorTexto, { color: colores.danger }]}>{errorMensaje}</Text>
               </View>
             )}
 
-            {modo === 'iniciar_sesion' ? (
-              // VISTA 1: INICIAR SESIÓN (COMPARTIDO)
-              <>
-                <CustomInput
-                  label="Correo electrónico"
-                  placeholder="usuario@ejemplo.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={correo}
-                  onChangeText={(t) => {
-                    setCorreo(t);
-                    setErrorMensaje(null);
-                  }}
-                  variante="relleno"
-                />
+            <CustomInput
+              label="Correo electrónico"
+              placeholder="usuario@ejemplo.com"
+              keyboardType="email-address"
+              autoCapitalize="none" // Evita la mayúscula automática al inicio del correo
+              autoCorrect={false}
+              autoComplete="email"
+              value={correo}
+              onChangeText={(texto) => {
+                setCorreo(texto);
+                setErrorMensaje(null);
+              }}
+              variante="relleno"
+            />
 
-                <CustomInput
-                  label="Contraseña"
-                  placeholder="••••••••"
-                  esContrasena={true}
-                  value={contrasena}
-                  onChangeText={(t) => {
-                    setContrasena(t);
-                    setErrorMensaje(null);
-                  }}
-                  variante="relleno"
-                />
+            <CustomInput
+              label="Contraseña"
+              placeholder="••••••••"
+              esContrasena // Agrega el ojito para mostrar u ocultar
+              autoCapitalize="none"
+              autoComplete="current-password"
+              value={contrasena}
+              onChangeText={(texto) => {
+                setContrasena(texto);
+                setErrorMensaje(null);
+              }}
+              onSubmitEditing={handleIniciarSesion} // Enter en el teclado también inicia sesión
+              variante="relleno"
+            />
 
-                <CustomButton
-                  titulo="Iniciar sesión"
-                  variante="dark"
-                  cargando={cargando}
-                  onPress={handleIniciarSesion}
-                  estilo={estilos.botonAccion}
-                />
+            <CustomButton
+              titulo="Iniciar sesión"
+              variante="dark"
+              cargando={cargando}
+              onPress={handleIniciarSesion}
+              estilo={estilos.botonAccion}
+            />
 
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={handleOlvidoContrasena}
-                  style={estilos.enlaceOlvido}
-                >
-                  <Text style={[estilos.textoOlvido, { color: colores.text }]}>
-                    ¿Olvidaste tu contraseña?
-                  </Text>
-                </TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.7} onPress={handleOlvidoContrasena} style={estilos.enlaceOlvido}>
+              <Text style={[estilos.textoOlvido, { color: colores.text }]}>¿Olvidaste tu contraseña?</Text>
+            </TouchableOpacity>
 
-                {/* Accesos rápidos de demostración */}
-                <View style={[estilos.seccionDemo, { borderTopColor: colores.border }]}>
-                  <Text style={[tipografia.micro, { color: colores.text_muted, textAlign: 'center', marginBottom: 8 }]}>
-                    ACCESO RÁPIDO PARA PRUEBAS:
-                  </Text>
-                  <View style={estilos.filaDemo}>
-                    <TouchableOpacity
-                      onPress={() => handleAccesoRapido('administrador')}
-                      style={[estilos.chipDemo, { backgroundColor: colores.primary }]}
-                    >
-                      <Text style={[estilos.textoChipDemo, { color: colores.on_primary }]}>Admin</Text>
-                    </TouchableOpacity>
+            {/* Separador */}
+            <View style={[estilos.separador, { backgroundColor: colores.border }]} />
 
-                    <TouchableOpacity
-                      onPress={() => handleAccesoRapido('mesero')}
-                      style={[estilos.chipDemo, { backgroundColor: colores.primary }]}
-                    >
-                      <Text style={[estilos.textoChipDemo, { color: colores.on_primary }]}>Mesero</Text>
-                    </TouchableOpacity>
+            {/* Registro de cafetería nueva (solo para dueños / administradores) */}
+            <Text style={[estilos.textoPie, { color: colores.text_secondary }]}>
+              ¿Tienes una cafetería y aún no tienes cuenta?
+            </Text>
 
-                    <TouchableOpacity
-                      onPress={() => handleAccesoRapido('cocina')}
-                      style={[estilos.chipDemo, { backgroundColor: colores.primary }]}
-                    >
-                      <Text style={[estilos.textoChipDemo, { color: colores.on_primary }]}>Cocinero</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+            <CustomButton
+              titulo="Registrar mi cafetería"
+              variante="outline"
+              onPress={() => router.push('/registro' as any)}
+              estilo={estilos.botonRegistro}
+            />
 
-                {/* Enlace para administradores nuevos */}
-                <View style={estilos.pie}>
-                  <Text style={[estilos.textoPie, { color: colores.text_secondary }]}>
-                    ¿Deseas registrar una nueva cafetería?{' '}
-                    <Text
-                      onPress={() => {
-                        setModo('registrar_admin');
-                        setErrorMensaje(null);
-                      }}
-                      style={[estilos.enlaceAdmin, { color: colores.primary }]}
-                    >
-                      Regístrate como Administrador
-                    </Text>
-                  </Text>
+            {/* Empleados: su cuenta la crea el administrador */}
+            <Text style={[estilos.textoPie, { color: colores.text_muted, marginTop: espaciado.md }]}>
+              ¿Eres empleado sin cuenta?{' '}
+              <Text onPress={handleContactarAdmin} style={[estilos.enlace, { color: colores.primary }]}>
+                Contacta al administrador
+              </Text>
+            </Text>
 
-                  <Text style={[estilos.textoPie, { color: colores.text_muted, marginTop: 10 }]}>
-                    ¿Eres empleado sin cuenta?{' '}
-                    <Text
-                      onPress={handleContactarAdmin}
-                      style={[estilos.enlaceAdmin, { color: colores.primary }]}
-                    >
-                      Contacta al administrador
-                    </Text>
-                  </Text>
-                </View>
-              </>
-            ) : (
-              // VISTA 2: REGISTRO DE ADMINISTRADOR Y CAFETERÍA
-              <>
-                <CustomInput
-                  label="Nombre del Administrador"
-                  placeholder="Ej. Gael Guzmán"
-                  autoCapitalize="words"
-                  value={nombreAdmin}
-                  onChangeText={(t) => {
-                    setNombreAdmin(t);
-                    setErrorMensaje(null);
-                  }}
-                  variante="relleno"
-                />
-
-                <CustomInput
-                  label="Nombre de la Cafetería"
-                  placeholder="Ej. Orby Cafetería"
-                  autoCapitalize="words"
-                  value={nombreCafeteria}
-                  onChangeText={(t) => {
-                    setNombreCafeteria(t);
-                    setErrorMensaje(null);
-                  }}
-                  variante="relleno"
-                />
-
-                <CustomInput
-                  label="Correo electrónico"
-                  placeholder="admin@cafeteria.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={correoAdmin}
-                  onChangeText={(t) => {
-                    setCorreoAdmin(t);
-                    setErrorMensaje(null);
-                  }}
-                  variante="relleno"
-                />
-
-                <CustomInput
-                  label="Contraseña"
-                  placeholder="Mínimo 6 caracteres"
-                  esContrasena={true}
-                  value={contrasenaAdmin}
-                  onChangeText={(t) => {
-                    setContrasenaAdmin(t);
-                    setErrorMensaje(null);
-                  }}
-                  variante="relleno"
-                />
-
-                <CustomInput
-                  label="Confirmar contraseña"
-                  placeholder="Repite la contraseña"
-                  esContrasena={true}
-                  value={confirmarContrasena}
-                  onChangeText={(t) => {
-                    setConfirmarContrasena(t);
-                    setErrorMensaje(null);
-                  }}
-                  variante="relleno"
-                />
-
-                <CustomButton
-                  titulo="Registrar Administrador"
-                  variante="primary"
-                  cargando={cargando}
-                  onPress={handleRegistrarAdministrador}
-                  estilo={estilos.botonAccion}
-                />
-
-                <View style={estilos.pie}>
-                  <Text style={[estilos.textoPie, { color: colores.text_secondary }]}>
-                    ¿Ya tienes una cuenta registrada?{' '}
-                    <Text
-                      onPress={() => {
-                        setModo('iniciar_sesion');
-                        setErrorMensaje(null);
-                      }}
-                      style={[estilos.enlaceAdmin, { color: colores.primary }]}
-                    >
-                      Inicia sesión
-                    </Text>
-                  </Text>
-                </View>
-              </>
+            {/* Acceso al laboratorio visual, solo en desarrollo */}
+            {__DEV__ && (
+              <TouchableOpacity onPress={() => router.push('/lab')} style={estilos.enlaceLab}>
+                <Text style={[tipografia.micro, { color: colores.text_muted }]}>Abrir laboratorio de diseño (/lab)</Text>
+              </TouchableOpacity>
             )}
           </View>
         </ScrollView>
@@ -450,6 +198,7 @@ export default function LoginScreen() {
   );
 }
 
+// ESTILOS
 const estilos = StyleSheet.create({
   pantalla: {
     flex: 1,
@@ -468,7 +217,7 @@ const estilos = StyleSheet.create({
   },
   encabezado: {
     alignItems: 'center',
-    marginBottom: espaciado.md,
+    marginBottom: espaciado.lg,
   },
   titulo: {
     fontFamily: fuentes.bold,
@@ -483,28 +232,9 @@ const estilos = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
-  pestañasContenedor: {
-    flexDirection: 'row',
-    borderRadius: 24,
-    padding: 4,
-    width: '100%',
-    maxWidth: 360,
-    marginBottom: espaciado.lg,
-  },
-  pestañaBoton: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
-  },
-  pestañaTexto: {
-    fontFamily: fuentes.semibold,
-    fontSize: 14,
-  },
   formulario: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 360, // En el navegador o en tableta no se estira de lado a lado
   },
   cajaError: {
     flexDirection: 'row',
@@ -533,39 +263,27 @@ const estilos = StyleSheet.create({
     fontFamily: fuentes.medium,
     fontSize: 14,
   },
-  seccionDemo: {
-    width: '100%',
-    maxWidth: 360,
-    marginTop: espaciado.lg,
-    paddingTop: espaciado.md,
-    borderTopWidth: 1,
-  },
-  filaDemo: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: espaciado.sm,
-  },
-  chipDemo: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-  },
-  textoChipDemo: {
-    fontFamily: fuentes.semibold,
-    fontSize: 13,
-  },
-  pie: {
-    marginTop: espaciado.lg,
-    marginBottom: espaciado.sm,
-    alignItems: 'center',
+  separador: {
+    height: 1,
+    marginVertical: espaciado.lg,
   },
   textoPie: {
     fontFamily: fuentes.regular,
     fontSize: 13,
-    textAlign: 'center',
     lineHeight: 18,
+    textAlign: 'center',
   },
-  enlaceAdmin: {
+  botonRegistro: {
+    marginTop: espaciado.sm,
+    height: 52,
+    borderRadius: 12,
+  },
+  enlace: {
     fontFamily: fuentes.bold,
+  },
+  enlaceLab: {
+    alignItems: 'center',
+    marginTop: espaciado.md,
+    padding: espaciado.xs,
   },
 });

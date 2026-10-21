@@ -3,7 +3,6 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -19,6 +18,7 @@ import { CustomButton } from '@/components/CustomButton';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useOrders } from '@/context/orders-context';
 import { espaciado, fuentes, radios, useTema } from '@/theme';
+import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
 
 export default function MeseroOrderSummaryScreen() {
   const router = useRouter();
@@ -37,7 +37,7 @@ export default function MeseroOrderSummaryScreen() {
 
   const handleEnviarCocina = async () => {
     if (carrito.length === 0) {
-      Alert.alert('Sin productos', 'El pedido no contiene productos.');
+      mostrarAviso('Sin productos', 'El pedido no contiene productos.');
       return;
     }
 
@@ -46,7 +46,7 @@ export default function MeseroOrderSummaryScreen() {
     setCargando(false);
 
     if (resultado.exito) {
-      Alert.alert(
+      mostrarAviso(
         '¡Comanda enviada!',
         `El pedido de la Mesa ${mesaSeleccionada} por un total de $${total} fue enviado exitosamente a la cocina.`,
         [
@@ -57,7 +57,7 @@ export default function MeseroOrderSummaryScreen() {
         ]
       );
     } else {
-      Alert.alert('Error', resultado.error ?? 'No se pudo enviar la comanda.');
+      mostrarAviso('Error', resultado.error ?? 'No se pudo enviar la comanda.');
     }
   };
 
