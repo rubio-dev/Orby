@@ -48,6 +48,8 @@ const { colores } = useTema();
 - Los colores salen de `useTema()`. Las medidas y la tipografía se importan directo de los tokens.
 - Por ahora el tema y el modo viven en memoria: al reiniciar la app vuelven a Orby y al modo del sistema.
 
+**Excepción: el logotipo.** Los colores de la ilustración de Orby (`OrbyLogo`) son de marca y no cambian con el tema ni con el modo. Viven en `coloresMarca`, dentro de `src/theme/tokens.ts`, no en las paletas. El texto "Orby" sí usa `colores.text` para que se lea en modo oscuro.
+
 ## Laboratorio visual
 
 Es una ruta de la app, **`/lab`**, que **solo existe en desarrollo**: en un build de producción redirige al inicio. Se abre desde el botón "Abrir laboratorio" de la pantalla de inicio.
@@ -90,11 +92,15 @@ Valores extraídos del mockup.
 | `text_muted` | `#6B7270` | Descripciones y ayudas (contraste 4.92) |
 | `text_subtle` | `#8A918E` | Posición en el ranking (contraste 3.22: solo para números o texto grande) |
 | `danger` | `#B3261E` | Mesa ocupada, cerrar sesión, campo obligatorio `*`, contador de avisos |
+| `on_danger` | `#FFFFFF` | Texto e iconos sobre `danger` (contraste 6.54) |
 | `danger_soft` / `danger_border` | `#FBE7E5` / `#E3ADA8` | Opción "Ocupada", botón de cerrar sesión |
 | `warning` | `#8A5A00` | Mesa apartada, alerta de comanda atrasada |
+| `on_warning` | `#FFFFFF` | Texto e iconos sobre `warning` (contraste 5.93) |
 | `warning_soft` / `warning_border` | `#F7EDD8` / `#D8C08A` | Opción "Apartada", aviso de cocina |
+| `success` | `#0E7A5A` | Variación positiva en las métricas (contraste 5.32 sobre `surface`) |
 | `info` / `info_soft` / `info_border` | `#1F5A4C` / `#E6EEEB` / `#CFDFD9` | Aviso informativo. En Orby coincide con el verde; en Miami es cian |
 | `overlay` | `#0E1413` al 42 % | Fondo detrás de los diálogos |
+| `shadow` | `#000000` | Color base de las sombras; la opacidad se define en cada estilo |
 
 ### Tipografía
 
@@ -133,7 +139,11 @@ La tabla de abajo es el **modo oscuro** ("Miami de noche"). El modo claro ("Miam
 | `text_subtle` | `#8B78B5` | 4.21 | |
 | `info` / `info_soft` | `#2DE2E6` / `#12324A` | 10.14 / 8.31 sobre su fondo suave | Cian (mesa libre, avisos informativos) |
 | `danger` / `danger_soft` | `#FF5C5C` / `#4A1A2A` | 5.36 / 4.71 sobre su fondo suave | |
+| `on_danger` | `#2A0A12` | 6.03 sobre `danger` | Texto oscuro: el blanco no alcanza |
 | `warning` / `warning_soft` | `#FFC145` / `#3D2E1A` | 10.01 / 8.08 sobre su fondo suave | |
+| `on_warning` | `#2B1D00` | 10.14 sobre `warning` | Texto oscuro sobre el ámbar |
+| `success` | `#5FE3B0` | 10.11 sobre `surface` | Variación positiva |
+| `shadow` | `#000000` | — | Sombras de diálogos y botones |
 
 La lista completa está en `src/theme/themes.ts`. El naranja de atardecer (`#FF9A3D`) quedó fuera por ahora: ningún token lo necesita todavía.
 
