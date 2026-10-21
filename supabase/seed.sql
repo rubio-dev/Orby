@@ -191,3 +191,41 @@ VALUES (
   'Emilio Sánchez',
   3
 ) ON CONFLICT ("id_usuario") DO NOTHING;
+
+-- Normalizar las columnas de token de los usuarios demo
+-- GoTrue (auth) las lee como texto, no como nulos: si quedan en NULL, el login falla con
+-- "Database error querying schema" (HTTP 500) aunque el correo y la contraseña sean correctos.
+UPDATE auth.users SET
+  confirmation_token         = coalesce(confirmation_token, ''),
+  recovery_token             = coalesce(recovery_token, ''),
+  email_change               = coalesce(email_change, ''),
+  email_change_token_new     = coalesce(email_change_token_new, ''),
+  email_change_token_current = coalesce(email_change_token_current, ''),
+  phone_change               = coalesce(phone_change, ''),
+  phone_change_token         = coalesce(phone_change_token, ''),
+  reauthentication_token     = coalesce(reauthentication_token, '')
+WHERE email IN ('admin@orby.com', 'mesero@orby.com', 'cocina@orby.com');
+
+-- Identidad de correo por usuario: es lo que auth consulta al iniciar sesión
+INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+SELECT gen_random_uuid(), u.id, u.id::text,
+       jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true, 'phone_verified', false),
+       'email', now(), now(), now()
+FROM auth.users u
+WHERE u.email IN ('admin@orby.com', 'mesero@orby.com', 'cocina@orby.com')
+  AND NOT EXISTS (SELECT 1 FROM auth.identities i WHERE i.user_id = u.id AND i.provider = 'email');
+
+-- Poner al administrador en la cafetería demo
+-- El trigger handle_new_user, al ver rol = 'administrador' en los metadatos, CREA una cafetería
+-- nueva con UUID aleatorio. Por eso el INSERT explícito de arriba (con la cafetería 0001) choca
+-- con la fila que ya creó el trigger y se descarta por ON CONFLICT DO NOTHING: el administrador
+-- acababa en una cafetería vacía, sin su equipo, sin mesas y sin menú.
+UPDATE public.usuario u
+   SET id_cafeteria = '00000000-0000-0000-0000-000000000001'
+ WHERE u.id_usuario = (SELECT id FROM auth.users WHERE email = 'admin@orby.com')
+   AND u.id_cafeteria <> '00000000-0000-0000-0000-000000000001';
+
+-- Borrar la cafetería huérfana que creó el trigger
+DELETE FROM public.cafeteria c
+ WHERE c.id_cafeteria <> '00000000-0000-0000-0000-000000000001'
+   AND NOT EXISTS (SELECT 1 FROM public.usuario u WHERE u.id_cafeteria = c.id_cafeteria);

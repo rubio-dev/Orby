@@ -4,6 +4,20 @@ Cada decisión lleva su fecha, qué se decidió y por qué. Las más recientes v
 
 ---
 
+## 2026-10-20: RLS por rol y por cafetería
+
+- **Decisión:** se reemplazan las políticas permisivas de `20261021000000_politicas_rls.sql` por políticas por rol y por cafetería, en `20261022000001_rls_por_rol_y_cafeteria.sql`. Se reusan las funciones auxiliares `mi_id_cafeteria()` y `mi_id_rol()` de `20261021000001_politicas_acceso.sql`.
+- **Motivo:** las políticas `USING (true)` dejaban leer y escribir a cualquiera con la llave pública, incluso sin sesión, y anulaban las políticas estrictas, porque Postgres permite la fila si cualquier política la permite. Se comprobó en local: sin iniciar sesión se leía la tabla `usuario` completa (nombres, roles y UUID de cafetería) y con ese UUID se podía crear una cuenta de `cocina` en esa cafetería con `auth/v1/signup`.
+- **Reglas:** catálogos de estados, lectura para cualquier sesión. Categorías, productos y mesas, lectura para la cafetería y gestión solo del administrador (el mesero también cambia el estado de las mesas). Comandas, lectura para la cafetería, las abre el mesero o el administrador. Detalles, se alcanzan por su comanda y solo se agregan o quitan mientras la cuenta esté abierta. Notificaciones, cada quien ve las suyas. A `anon` se le quitaron todos los permisos de escritura.
+- **Verificación (local, con los tres usuarios de la semilla):** sin sesión las tablas devuelven `[]`; el mesero abre cuenta y agrega productos pero no crea productos del menú (403); la cocina marca el producto como listo pero no abre cuentas (403) ni cambia el estado de una mesa (0 filas); el mesero no puede abrir cuenta en otra cafetería (403).
+- **Ojo:** RLS no da error al actualizar: deja la operación en **0 filas**. PostgREST responde `204` igual, así que la app tiene que mirar las filas devueltas (`Prefer: return=representation`) para saber si el cambio se aplicó.
+- **Pendiente:** el alta de empleados sigue usando `auth.signUp` con la llave pública desde `src/lib/auth.ts` en lugar de la Edge Function `registrar-empleado`, que ya valida que el llamante sea administrador. Mientras siga así, `enable_signup` tiene que estar en `true`.
+
+## 2026-10-20: Arreglos en las semillas para que el login funcione en local
+
+- **Columnas de token en `auth.users`:** los usuarios demo se sembraban con `NULL` en `confirmation_token`, `recovery_token` y las demás. GoTrue las lee como texto, así que **el login fallaba con HTTP 500 "Database error querying schema"** aunque el correo y la contraseña fueran correctos. Ahora se normalizan a cadena vacía y se crea la fila de `auth.identities` de cada usuario.
+- **Cafetería del administrador:** el trigger `handle_new_user`, al ver `rol = 'administrador'` en los metadatos, crea una cafetería nueva con UUID aleatorio. El `INSERT` explícito que lo ponía en la cafetería demo se descartaba por `ON CONFLICT DO NOTHING`, así que el administrador quedaba solo, en una cafetería vacía, sin equipo, sin mesas y sin menú. Con las políticas permisivas no se notaba; con RLS por cafetería, no veía nada. La semilla ahora lo mueve a la cafetería demo y borra la huérfana.
+
 ## 2026-10-21: Login por rol, registro de cafeterías y alta de empleados
 
 - **Login (`src/app/login.tsx`):** un solo login para los 3 roles; después de entrar se lee `id_rol` en `public.usuario` y se manda a `/(admin)`, `/(mesero)` o `/(cocina)`. Se quitaron las pestañas y los botones de acceso rápido de prueba.
