@@ -1,364 +1,255 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons'; // Íconos
+import { useFocusEffect, useRouter } from 'expo-router'; // Navegación y recarga al volver a la pantalla
+import React, { useCallback, useState } from 'react'; // Estado de React
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'; // Componentes base
+import { SafeAreaView } from 'react-native-safe-area-context'; // Respeta el notch y la barra del sistema
 
-import { AdminBottomNav } from '@/components/AdminBottomNav';
-import { CustomButton } from '@/components/CustomButton';
-import { CustomInput } from '@/components/CustomInput';
-import { ScreenHeader } from '@/components/ScreenHeader';
-import { SegmentedTabs } from '@/components/SegmentedTabs';
-import { useAuth } from '@/context/auth-context';
-import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme';
-import type { RolUsuario, Usuario } from '@/types';
+import { AdminBottomNav } from '@/components/AdminBottomNav'; // Barra inferior del administrador
+import { ScreenHeader } from '@/components/ScreenHeader'; // Encabezado con flecha de regreso
+import { useAuth } from '@/context/auth-context'; // Administrador con sesión iniciada
+import { supabase_configurado } from '@/lib/env'; // Saber si hay conexión configurada
+import { obtener_supabase } from '@/lib/supabase'; // Cliente principal de Supabase
+import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme'; // Tema activo y tokens
+import { NOMBRES_ROLES } from '@/types'; // Nombre del rol a partir de su id
 
+// TIPOS
+type Integrante = {
+  id_usuario: string;
+  nombre: string;
+  id_rol: number;
+};
+
+// ETIQUETAS Y COLORES DE CADA ROL (mismos colores que usa el resto del diseño)
+const INFO_ROL: Record<string, { etiqueta: string; icono: keyof typeof Ionicons.glyphMap; color: string; fondo: string }> = {
+  administrador: { etiqueta: 'Administrador', icono: 'briefcase-outline', color: '#1F5A4C', fondo: '#DCEBE6' },
+  mesero: { etiqueta: 'Mesero', icono: 'receipt-outline', color: '#388D7A', fondo: '#DCEBE6' },
+  cocina: { etiqueta: 'Cocina / Barra', icono: 'restaurant-outline', color: '#C27803', fondo: '#F7EDD8' },
+};
+
+// PANTALLA "ADMINISTRA TU CAFETERÍA Y A TU EQUIPO" ("/(admin)/staff")
+// Se abre desde la pestaña "Personal" o desde la tarjeta "Gestión de Personal" del inicio.
+// Muestra la cafetería del administrador, el acceso para registrar empleados y la lista del equipo
+// leída directamente de la tabla usuario (la política RLS "usuario_admin_ver_equipo" lo permite).
 export default function AdminStaffScreen() {
   const router = useRouter();
   const { colores } = useTema();
-  const { listaPersonal, registrarPersonal, eliminarPersonal } = useAuth();
+  const { usuario } = useAuth();
 
-  const [tabActual, setTabActual] = useState<'registro' | 'lista'>('registro');
-  const [nombre, setNombre] = useState('');
-  const [correo, setCorreo] = useState('');
-  const [contrasena, setContrasena] = useState('');
-  const [rolSeleccionado, setRolSeleccionado] = useState<RolUsuario>('mesero');
-  const [cargando, setCargando] = useState(false);
+  const [nombreCafeteria, setNombreCafeteria] = useState('');
+  const [equipo, setEquipo] = useState<Integrante[] | null>(null); // null = cargando
+  const [error, setError] = useState<string | null>(null);
 
-  const handleRegistrar = async () => {
-    if (!nombre.trim()) {
-      Alert.alert('Campo requerido', 'Por favor ingresa el nombre completo del empleado.');
-      return;
-    }
-    if (!correo.trim() || !correo.includes('@')) {
-      Alert.alert('Correo inválido', 'Por favor ingresa un correo electrónico válido.');
-      return;
-    }
-    if (!contrasena.trim() || contrasena.length < 6) {
-      Alert.alert('Contraseña débil', 'La contraseña debe tener al menos 6 caracteres.');
-      return;
-    }
+  const idCafeteria = usuario?.id_cafeteria;
 
-    setCargando(true);
-    const resultado = await registrarPersonal({
-      nombre: nombre.trim(),
-      correo: correo.trim(),
-      contrasena: contrasena.trim(),
-      rol: rolSeleccionado,
-    });
-    setCargando(false);
+  // Se consulta cada vez que la pantalla vuelve a mostrarse (por ejemplo, al regresar de registrar a alguien)
+  useFocusEffect(
+    useCallback(() => {
+      if (!idCafeteria || !supabase_configurado) {
+        setEquipo([]);
+        return;
+      }
 
-    if (resultado.exito) {
-      Alert.alert(
-        'Empleado registrado',
-        `Se ha registrado exitosamente a ${nombre} con el rol de ${rolSeleccionado}. Ya puede iniciar sesión con sus credenciales.`,
-        [
-          {
-            text: 'Ver lista',
-            onPress: () => {
-              setNombre('');
-              setCorreo('');
-              setContrasena('');
-              setTabActual('lista');
-            },
-          },
-          {
-            text: 'Registrar otro',
-            onPress: () => {
-              setNombre('');
-              setCorreo('');
-              setContrasena('');
-            },
-          },
-        ]
-      );
-    } else {
-      Alert.alert('Error en registro', resultado.error ?? 'No se pudo completar el registro.');
-    }
-  };
+      let cancelado = false; // Evita guardar resultados si se salió de la pantalla
+      const supabase = obtener_supabase();
 
-  const confirmarEliminar = (empleado: Usuario) => {
-    Alert.alert(
-      'Eliminar empleado',
-      `¿Deseas remover a ${empleado.nombre} del sistema? Ya no podrá acceder a la cafetería.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: () => eliminarPersonal(empleado.id_usuario),
-        },
-      ]
-    );
-  };
+      // 1. Nombre de la cafetería
+      supabase
+        .from('cafeteria')
+        .select('nombre_cafeteria')
+        .eq('id_cafeteria', idCafeteria)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (!cancelado && data) {
+            setNombreCafeteria(data.nombre_cafeteria);
+          }
+        });
 
-  const renderItemEmpleado = ({ item }: { item: Usuario }) => {
-    const esMesero = item.rol === 'mesero';
-    const colorBadge = esMesero ? '#388D7A' : '#C27803';
+      // 2. Integrantes de la cafetería: primero el administrador, luego meseros y cocina
+      supabase
+        .from('usuario')
+        .select('id_usuario, nombre, id_rol')
+        .eq('id_cafeteria', idCafeteria)
+        .order('id_rol')
+        .order('nombre')
+        .then(({ data, error: errorConsulta }) => {
+          if (cancelado) {
+            return;
+          }
 
-    return (
-      <View style={[estilos.tarjetaEmpleado, { backgroundColor: colores.surface, borderColor: '#1A1D1C' }]}>
-        <View style={[estilos.avatarPequeno, { backgroundColor: esMesero ? '#DCEBE6' : '#F7EDD8' }]}>
-          <Ionicons
-            name={esMesero ? 'receipt-outline' : 'restaurant-outline'}
-            size={24}
-            color={colorBadge}
-          />
-        </View>
+          if (errorConsulta) {
+            setError(errorConsulta.message);
+            return;
+          }
 
-        <View style={{ flex: 1, marginLeft: espaciado.md }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: espaciado.xs }}>
-            <Text style={[tipografia.cuerpo_fuerte, { color: colores.text }]}>
-              {item.nombre}
-            </Text>
-            <View style={[estilos.chipRol, { backgroundColor: colorBadge }]}>
-              <Text style={estilos.textoChipRol}>{item.rol.toUpperCase()}</Text>
-            </View>
-          </View>
-          <Text style={[tipografia.detalle, { color: colores.text_muted, marginTop: 2 }]}>
-            {item.correo}
-          </Text>
-        </View>
+          setError(null);
+          setEquipo((data ?? []) as Integrante[]);
+        });
 
-        <TouchableOpacity
-          onPress={() => confirmarEliminar(item)}
-          style={estilos.botonEliminar}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="trash-outline" size={20} color={colores.danger} />
-        </TouchableOpacity>
-      </View>
-    );
-  };
+      return () => {
+        cancelado = true;
+      };
+    }, [idCafeteria])
+  );
 
   return (
     <SafeAreaView style={[estilos.pantalla, { backgroundColor: colores.background }]} edges={['top']}>
-      <ScreenHeader
-        titulo="Gestión de Personal"
-        onBack={() => router.push('/(admin)' as any)}
-      />
+      <ScreenHeader titulo="Gestión de Personal" onBack={() => router.push('/(admin)' as any)} />
 
-      <View style={estilos.contenido}>
-        <SegmentedTabs
-          opciones={[
-            { id: 'registro', etiqueta: 'Registrar Personal' },
-            { id: 'lista', etiqueta: `Equipo (${listaPersonal.length})` },
-          ]}
-          seleccionada={tabActual}
-          alSeleccionar={setTabActual}
-          tipo="tabs"
-        />
+      <ScrollView contentContainerStyle={estilos.scroll} showsVerticalScrollIndicator={false}>
+        {/* Datos de la cafetería */}
+        <View style={estilos.encabezado}>
+          <View style={estilos.fila}>
+            <View style={[estilos.pastilla, { backgroundColor: colores.primary_soft }]}>
+              <Text style={[estilos.textoPastilla, { color: colores.primary_strong }]}>Administrador</Text>
+            </View>
+            <Text style={[estilos.cafeteria, { color: colores.text }]}>{nombreCafeteria}</Text>
+          </View>
+          <Text style={[tipografia.cuerpo, { color: colores.text_secondary }]}>
+            Administra tu cafetería y a tu equipo de trabajo.
+          </Text>
+        </View>
 
-        {tabActual === 'registro' ? (
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={{ flex: 1 }}
-          >
-            <ScrollView
-              contentContainerStyle={estilos.scroll}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <Text style={[tipografia.cuerpo, { color: colores.text_secondary, marginBottom: espaciado.md }]}>
-                Crea cuentas para los meseros y cocineros de tu cafetería. Ellos usarán este correo y contraseña para entrar.
-              </Text>
+        {/* Acceso para registrar empleados */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/(admin)/new-staff' as any)}
+          style={[estilos.tarjetaAccion, { backgroundColor: colores.primary_soft, borderColor: colores.border_strong }]}
+        >
+          <View style={[estilos.iconoCirculo, { backgroundColor: colores.surface }]}>
+            <Ionicons name="person-add" size={24} color={colores.primary_strong} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[tipografia.cuerpo_fuerte, { color: colores.primary_strong }]}>Registrar empleado</Text>
+            <Text style={[tipografia.detalle, { color: colores.text_secondary }]}>
+              Da de alta a meseros y personal de cocina o barra.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={22} color={colores.primary_strong} />
+        </TouchableOpacity>
 
-              {/* Nombre completo */}
-              <CustomInput
-                label="Nombre completo"
-                obligatorio
-                placeholder="Ej. Liz Morales"
-                value={nombre}
-                onChangeText={setNombre}
-                variante="borde"
-              />
+        {/* Lista del equipo */}
+        <Text style={[estilos.titulo, { color: colores.text }]}>Tu equipo</Text>
 
-              {/* Correo electrónico */}
-              <CustomInput
-                label="Correo electrónico"
-                obligatorio
-                placeholder="Ej. liz@orby.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={correo}
-                onChangeText={setCorreo}
-                variante="borde"
-              />
-
-              {/* Contraseña temporal */}
-              <CustomInput
-                label="Contraseña temporal"
-                obligatorio
-                placeholder="Mínimo 6 caracteres"
-                esContrasena
-                value={contrasena}
-                onChangeText={setContrasena}
-                variante="borde"
-              />
-
-              {/* Selector de Rol */}
-              <View style={estilos.grupoRol}>
-                <Text style={[estilos.label, { color: colores.text }]}>
-                  Rol a desempeñar: <Text style={{ color: colores.danger }}>*</Text>
-                </Text>
-                <View style={estilos.filaRoles}>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => setRolSeleccionado('mesero')}
-                    style={[
-                      estilos.cardRol,
-                      rolSeleccionado === 'mesero'
-                        ? { borderColor: '#388D7A', backgroundColor: '#E8F5F1' }
-                        : { borderColor: '#1A1D1C', backgroundColor: colores.surface },
-                    ]}
-                  >
-                    <Ionicons
-                      name="receipt-outline"
-                      size={26}
-                      color={rolSeleccionado === 'mesero' ? '#388D7A' : '#1A1D1C'}
-                    />
-                    <Text
-                      style={[
-                        estilos.textoRol,
-                        { color: rolSeleccionado === 'mesero' ? '#388D7A' : '#1A1D1C' },
-                      ]}
-                    >
-                      Mesero
-                    </Text>
-                    <Text style={[tipografia.micro, { color: colores.text_muted, textAlign: 'center' }]}>
-                      Toma pedidos y atiende mesas
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => setRolSeleccionado('cocina')}
-                    style={[
-                      estilos.cardRol,
-                      rolSeleccionado === 'cocina'
-                        ? { borderColor: '#C27803', backgroundColor: '#FDF7EB' }
-                        : { borderColor: '#1A1D1C', backgroundColor: colores.surface },
-                    ]}
-                  >
-                    <Ionicons
-                      name="restaurant-outline"
-                      size={26}
-                      color={rolSeleccionado === 'cocina' ? '#C27803' : '#1A1D1C'}
-                    />
-                    <Text
-                      style={[
-                        estilos.textoRol,
-                        { color: rolSeleccionado === 'cocina' ? '#C27803' : '#1A1D1C' },
-                      ]}
-                    >
-                      Cocinero
-                    </Text>
-                    <Text style={[tipografia.micro, { color: colores.text_muted, textAlign: 'center' }]}>
-                      Prepara comandas en cocina
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Botón de acción */}
-              <CustomButton
-                titulo="Registrar Empleado"
-                variante="primary"
-                cargando={cargando}
-                onPress={handleRegistrar}
-                estilo={{ marginTop: espaciado.md }}
-              />
-            </ScrollView>
-          </KeyboardAvoidingView>
-        ) : (
-          /* Lista de personal registrado */
-          <FlatList
-            data={listaPersonal}
-            keyExtractor={(item) => item.id_usuario}
-            renderItem={renderItemEmpleado}
-            contentContainerStyle={estilos.listaEquipo}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={estilos.vacio}>
-                <Text style={[tipografia.cuerpo, { color: colores.text_muted }]}>
-                  No hay personal registrado aún
-                </Text>
-              </View>
-            }
-          />
+        {error && (
+          <Text style={[tipografia.detalle, { color: colores.danger }]}>No se pudo cargar el equipo: {error}</Text>
         )}
-      </View>
+
+        {!error && equipo === null && <ActivityIndicator color={colores.primary} />}
+
+        {equipo !== null && (
+          <View style={estilos.lista}>
+            {equipo.map((integrante) => {
+              const rol = NOMBRES_ROLES[integrante.id_rol] ?? 'mesero';
+              const info = INFO_ROL[rol];
+
+              return (
+                <View
+                  key={integrante.id_usuario}
+                  style={[estilos.tarjetaEmpleado, { backgroundColor: colores.surface, borderColor: colores.border_strong }]}
+                >
+                  <View style={[estilos.avatar, { backgroundColor: info.fondo }]}>
+                    <Ionicons name={info.icono} size={22} color={info.color} />
+                  </View>
+
+                  <Text style={[tipografia.cuerpo_fuerte, estilos.nombre, { color: colores.text }]}>
+                    {integrante.nombre}
+                    {integrante.id_usuario === usuario?.id_usuario ? ' (tú)' : ''}
+                  </Text>
+
+                  <View style={[estilos.chipRol, { backgroundColor: info.color }]}>
+                    <Text style={estilos.textoChipRol}>{info.etiqueta.toUpperCase()}</Text>
+                  </View>
+                </View>
+              );
+            })}
+
+            {/* Si solo está el administrador, se sugiere registrar empleados */}
+            {equipo.length <= 1 && (
+              <Text style={[tipografia.detalle, estilos.vacio, { color: colores.text_muted }]}>
+                Aún no registras empleados. Usa &quot;Registrar empleado&quot;.
+              </Text>
+            )}
+          </View>
+        )}
+      </ScrollView>
 
       <AdminBottomNav activa="personal" />
     </SafeAreaView>
   );
 }
 
+// ESTILOS
 const estilos = StyleSheet.create({
   pantalla: {
     flex: 1,
   },
-  contenido: {
-    flex: 1,
-    paddingHorizontal: espaciado.pantalla,
-  },
   scroll: {
+    paddingHorizontal: espaciado.pantalla,
     paddingBottom: espaciado.xxl,
-  },
-  grupoRol: {
-    marginVertical: espaciado.sm,
-  },
-  label: {
-    fontFamily: fuentes.bold,
-    fontSize: 16,
-    marginBottom: espaciado.sm,
-  },
-  filaRoles: {
-    flexDirection: 'row',
     gap: espaciado.md,
   },
-  cardRol: {
-    flex: 1,
-    borderWidth: 2,
-    borderRadius: radios.lg,
+  encabezado: {
+    gap: espaciado.sm,
+  },
+  fila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: espaciado.sm,
+  },
+  pastilla: {
+    borderRadius: radios.pastilla,
+    paddingHorizontal: espaciado.md,
+    paddingVertical: espaciado.xs,
+  },
+  textoPastilla: {
+    fontFamily: fuentes.semibold,
+    fontSize: 12,
+  },
+  cafeteria: {
+    fontFamily: fuentes.bold,
+    fontSize: 18,
+  },
+  tarjetaAccion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espaciado.md,
     padding: espaciado.md,
+    borderRadius: radios.lg,
+    borderWidth: 1,
+  },
+  iconoCirculo: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 100,
   },
-  textoRol: {
+  titulo: {
     fontFamily: fuentes.bold,
-    fontSize: 17,
-    marginVertical: 4,
-  },
-  listaEquipo: {
-    paddingBottom: espaciado.xxl,
-    gap: espaciado.sm,
+    fontSize: 20,
     marginTop: espaciado.sm,
+  },
+  lista: {
+    gap: espaciado.sm,
   },
   tarjetaEmpleado: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: espaciado.md,
     padding: espaciado.md,
     borderRadius: radios.lg,
     borderWidth: 1.5,
   },
-  avatarPequeno: {
+  avatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  nombre: {
+    flex: 1,
   },
   chipRol: {
     paddingHorizontal: 8,
@@ -370,11 +261,8 @@ const estilos = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-  botonEliminar: {
-    padding: espaciado.xs,
-  },
   vacio: {
-    padding: espaciado.xxl,
-    alignItems: 'center',
+    textAlign: 'center',
+    paddingVertical: espaciado.sm,
   },
 });

@@ -4,6 +4,16 @@ Cada decisión lleva su fecha, qué se decidió y por qué. Las más recientes v
 
 ---
 
+## 2026-10-21: Login por rol, registro de cafeterías y alta de empleados
+
+- **Login (`src/app/login.tsx`):** un solo login para los 3 roles; después de entrar se lee `id_rol` en `public.usuario` y se manda a `/(admin)`, `/(mesero)` o `/(cocina)`. Se quitaron las pestañas y los botones de acceso rápido de prueba.
+- **Guardia de rol (`src/components/GuardiaRol.tsx`):** cada grupo revisa el rol; un mesero no puede abrir pantallas del administrador.
+- **Registro del administrador (`src/app/registro.tsx`):** el dueño crea su cuenta y su cafetería; la función `handle_new_user` crea la cafetería y el perfil. Si Supabase falla ya no se inicia una sesión falsa.
+- **Alta de empleados (`src/app/(admin)/new-staff.tsx`):** crea la cuenta real en Supabase con un cliente temporal que no guarda sesión (para no cerrar la del administrador). La pestaña Personal (`staff.tsx`) lee el equipo directo de la tabla `usuario`.
+- **Pendiente:** desplegar la Edge Function `registrar-empleado` y usarla en lugar del cliente temporal; con la llave pública, alguien con el UUID de una cafetería podría registrarse en ella.
+- **Pendiente (base de datos):** revisar las políticas `USING (true)` de `20261021000000_politicas_rls.sql`, que dejan leer, cambiar y borrar usuarios sin sesión. `20261021000001_politicas_acceso.sql` tiene versiones más estrictas.
+
+
 ## 2026-10-19: Primer push a GitHub
 
 - **Repositorio:** [rubio-dev/Orby](https://github.com/rubio-dev/Orby), público, rama `main`.

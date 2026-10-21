@@ -17,7 +17,7 @@ import { CustomButton } from '@/components/CustomButton';
 import { CustomInput } from '@/components/CustomInput';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useAuth } from '@/context/auth-context';
-import { confirmarAccion } from '@/lib/confirm';
+import { confirmarAccion, mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby
 import { espaciado, fuentes, useTema } from '@/theme';
 
 export default function AdminProfileScreen() {
@@ -58,9 +58,9 @@ export default function AdminProfileScreen() {
             onPress: (nueva) => {
               if (nueva && nueva.length >= 6) {
                 setContrasena(nueva);
-                Alert.alert('Éxito', 'Contraseña actualizada correctamente.');
+                mostrarAviso('Éxito', 'Contraseña actualizada correctamente.');
               } else {
-                Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres.');
+                mostrarAviso('Error', 'La contraseña debe tener al menos 6 caracteres.');
               }
             },
           },
@@ -68,7 +68,7 @@ export default function AdminProfileScreen() {
         'secure-text'
       );
     } else {
-      Alert.alert('Cambiar contraseña', 'Contraseña actualizada con éxito.', [{ text: 'OK' }]);
+      mostrarAviso('Cambiar contraseña', 'Contraseña actualizada con éxito.', [{ text: 'OK' }]);
     }
   };
 

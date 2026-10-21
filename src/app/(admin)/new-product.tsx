@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -20,6 +19,7 @@ import { CustomButton } from '@/components/CustomButton';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useCatalog } from '@/context/catalog-context';
 import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme';
+import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
 
 export default function AdminNewProductScreen() {
   const router = useRouter();
@@ -38,13 +38,13 @@ export default function AdminNewProductScreen() {
 
   const handleGuardar = async () => {
     if (!nombre.trim()) {
-      Alert.alert('Campo requerido', 'Por favor ingresa el nombre del producto.');
+      mostrarAviso('Campo requerido', 'Por favor ingresa el nombre del producto.');
       return;
     }
 
     const precioNumero = parseFloat(precio.replace(/[^0-9.]/g, ''));
     if (isNaN(precioNumero) || precioNumero < 0) {
-      Alert.alert('Precio inválido', 'Por favor ingresa un precio numérico válido.');
+      mostrarAviso('Precio inválido', 'Por favor ingresa un precio numérico válido.');
       return;
     }
 
@@ -60,21 +60,21 @@ export default function AdminNewProductScreen() {
         imagen_url: null,
       });
 
-      Alert.alert('Éxito', 'Producto guardado correctamente en el catálogo.', [
+      mostrarAviso('Éxito', 'Producto guardado correctamente en el catálogo.', [
         {
           text: 'Aceptar',
           onPress: () => router.back(),
         },
       ]);
     } catch {
-      Alert.alert('Error', 'No se pudo guardar el producto. Inténtalo de nuevo.');
+      mostrarAviso('Error', 'No se pudo guardar el producto. Inténtalo de nuevo.');
     } finally {
       setCargando(false);
     }
   };
 
   const handleSeleccionarImagen = () => {
-    Alert.alert(
+    mostrarAviso(
       'Subir imagen',
       'Aquí puedes seleccionar una foto de tu galería o cámara para el producto.',
       [{ text: 'Entendido' }]

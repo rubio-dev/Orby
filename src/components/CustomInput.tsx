@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -30,10 +31,14 @@ export function CustomInput({
   iconoDerecha,
   onPressIconoDerecha,
   style,
+  onFocus,
+  onBlur,
   ...props
 }: CustomInputProps) {
   const { colores } = useTema();
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
+  // Si el campo está seleccionado (escribiendo); se usa para pintar el borde verde
+  const [enfocado, setEnfocado] = useState(false);
 
   const esCampoSeguro = esContrasena && !mostrarContrasena;
 
@@ -53,6 +58,8 @@ export function CustomInput({
             ? {
                 backgroundColor: '#DFE5E2',
                 borderRadius: radios.lg,
+                borderWidth: 1.5, // Borde invisible: así el campo no "brinca" al aparecer el borde verde
+                borderColor: 'transparent',
               }
             : {
                 backgroundColor: colores.surface,
@@ -60,6 +67,8 @@ export function CustomInput({
                 borderWidth: 1.5,
                 borderRadius: radios.lg,
               },
+          // Al escribir: borde verde suave en lugar del recuadro negro del navegador
+          enfocado ? { borderColor: colores.primary, borderWidth: 1.5 } : null,
           error ? { borderColor: colores.danger, borderWidth: 1.5 } : null,
         ]}
       >
@@ -69,10 +78,20 @@ export function CustomInput({
           style={[
             estilos.input,
             { color: colores.text },
+            // En el navegador se quita el recuadro negro que aparece al escribir
+            Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null,
             esContrasena || iconoDerecha ? { paddingRight: 40 } : null,
             style,
           ]}
           {...props}
+          onFocus={(evento) => {
+            setEnfocado(true);
+            onFocus?.(evento); // Respeta el onFocus que mande la pantalla, si existe
+          }}
+          onBlur={(evento) => {
+            setEnfocado(false);
+            onBlur?.(evento);
+          }}
         />
 
         {esContrasena && (

@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,7 +16,7 @@ import { CustomInput } from '@/components/CustomInput';
 import { MeseroBottomNav } from '@/components/MeseroBottomNav';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useAuth } from '@/context/auth-context';
-import { confirmarAccion } from '@/lib/confirm';
+import { confirmarAccion, mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby
 import { espaciado, fuentes, useTema } from '@/theme';
 
 export default function MeseroProfileScreen() {
@@ -31,7 +30,7 @@ export default function MeseroProfileScreen() {
   const nombreMesero = usuario?.nombre ?? 'Liz Morales';
 
   const handleCambiarContrasena = () => {
-    Alert.alert('Cambiar contraseña', 'Contraseña actualizada con éxito.', [{ text: 'OK' }]);
+    mostrarAviso('Cambiar contraseña', 'Contraseña actualizada con éxito.', [{ text: 'OK' }]);
   };
 
   const handleCerrarSesion = () => {

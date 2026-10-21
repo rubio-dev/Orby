@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,7 +16,7 @@ import { CustomButton } from '@/components/CustomButton';
 import { CustomInput } from '@/components/CustomInput';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useAuth } from '@/context/auth-context';
-import { confirmarAccion } from '@/lib/confirm';
+import { confirmarAccion, mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby
 import { espaciado, fuentes, useTema } from '@/theme';
 
 export default function CocinaProfileScreen() {
@@ -31,7 +30,7 @@ export default function CocinaProfileScreen() {
   const nombreCocinero = usuario?.nombre ?? 'Emilio Sánchez';
 
   const handleCambiarContrasena = () => {
-    Alert.alert('Cambiar contraseña', 'Contraseña actualizada con éxito.', [{ text: 'OK' }]);
+    mostrarAviso('Cambiar contraseña', 'Contraseña actualizada con éxito.', [{ text: 'OK' }]);
   };
 
   const handleCerrarSesion = () => {

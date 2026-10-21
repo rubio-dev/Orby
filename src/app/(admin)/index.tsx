@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,6 +17,7 @@ import { UserHeader } from '@/components/UserHeader';
 import { useAuth } from '@/context/auth-context';
 import { useCatalog } from '@/context/catalog-context';
 import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme';
+import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
 
 export default function AdminHomeScreen() {
   const router = useRouter();
@@ -26,7 +26,7 @@ export default function AdminHomeScreen() {
   const { estadisticas } = useCatalog();
 
   const handleDescargarReporte = () => {
-    Alert.alert(
+    mostrarAviso(
       'Descargar reporte',
       'El reporte diario de ventas y pedidos ha sido generado en formato PDF/Excel.',
       [{ text: 'Aceptar' }]

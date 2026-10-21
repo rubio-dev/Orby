@@ -10,6 +10,7 @@ import * as SplashScreen from 'expo-splash-screen'; // Pantalla de arranque mien
 import { StatusBar } from 'expo-status-bar'; // Barra de estado del sistema
 import { useEffect } from 'react'; // Efectos de React
 
+import { DialogoProvider } from '@/components/DialogoProvider'; // Avisos y confirmaciones con el diseño de Orby
 import { AuthProvider } from '@/context/auth-context'; // Proveedor de sesión y roles
 import { CatalogProvider } from '@/context/catalog-context'; // Proveedor del catálogo de productos
 import { OrdersProvider } from '@/context/orders-context'; // Proveedor de comandas y mesas
@@ -64,7 +65,9 @@ export default function RootLayout() {
       <AuthProvider>
         <CatalogProvider>
           <OrdersProvider>
-            <Navegacion />
+            <DialogoProvider>
+              <Navegacion />
+            </DialogoProvider>
           </OrdersProvider>
         </CatalogProvider>
       </AuthProvider>
