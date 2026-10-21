@@ -17,7 +17,7 @@
 **Mesas**
 
 - Número
-- Estado: libre, ocupada o apartada
+- Estado: libre, ocupada, apartada o inactiva
 
 ## Usuarios y accesos
 
@@ -44,7 +44,7 @@
 - Cantidad
 - Especificaciones, por ejemplo "sin cebolla"
 
-**Estados de la orden**, que cambia cocina: `pendiente → en preparación → listo`
+**Estados de la orden**, que cambia cocina: `pendiente → en preparación → listo`. El esquema agrega `entregada` y `cancelada`; la app todavía no los usa.
 
 > **Observación:** según el flujo de cocina, también hay **estado y tiempo estimado por producto**, no solo por orden. Ver [open-questions](open-questions.md).
 
