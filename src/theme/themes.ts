@@ -21,15 +21,19 @@ export type ColoresTema = {
   text_muted: string;
   text_subtle: string;
   danger: string;
+  on_danger: string;
   danger_soft: string;
   danger_border: string;
   warning: string;
+  on_warning: string;
   warning_soft: string;
   warning_border: string;
+  success: string;
   info: string;
   info_soft: string;
   info_border: string;
   overlay: string;
+  shadow: string;
 };
 
 export type NombreTema = 'orby' | 'miami';
@@ -70,15 +74,19 @@ const orby: Tema = {
       text_muted: '#6B7270',
       text_subtle: '#8A918E',
       danger: '#B3261E',
+      on_danger: '#FFFFFF',
       danger_soft: '#FBE7E5',
       danger_border: '#E3ADA8',
       warning: '#8A5A00',
+      on_warning: '#FFFFFF',
       warning_soft: '#F7EDD8',
       warning_border: '#D8C08A',
+      success: '#0E7A5A',
       info: '#1F5A4C',
       info_soft: '#E6EEEB',
       info_border: '#CFDFD9',
       overlay: 'rgba(14, 20, 19, 0.42)',
+      shadow: '#000000',
     },
     // Gris verdoso oscuro; el verde se aclara para seguir legible y lleva texto oscuro encima
     oscuro: {
@@ -102,15 +110,19 @@ const orby: Tema = {
       text_muted: '#8D9995',
       text_subtle: '#75817D',
       danger: '#FF8A80',
+      on_danger: '#2A0F0C',
       danger_soft: '#2A1215',
       danger_border: '#5C2B2E',
       warning: '#E8B85C',
+      on_warning: '#2B1D00',
       warning_soft: '#2B2210',
       warning_border: '#5A4520',
+      success: '#5FD3A8',
       info: '#7FD4BE',
       info_soft: '#17302A',
       info_border: '#24443C',
       overlay: 'rgba(0, 0, 0, 0.6)',
+      shadow: '#000000',
     },
   },
 };
@@ -143,15 +155,19 @@ const miami: Tema = {
       text_muted: '#76627F',
       text_subtle: '#9A88A6',
       danger: '#C21F3A',
+      on_danger: '#FFFFFF',
       danger_soft: '#FDE4E8',
       danger_border: '#F2B3BE',
       warning: '#8A5300',
+      on_warning: '#FFFFFF',
       warning_soft: '#FFF0D6',
       warning_border: '#F0CF8F',
+      success: '#0E7A5A',
       info: '#00788A',
       info_soft: '#DDF6F8',
       info_border: '#9EDFE6',
       overlay: 'rgba(42, 16, 51, 0.45)',
+      shadow: '#000000',
     },
     // Sobre el rosa neón el texto va oscuro: el blanco no alcanza el contraste mínimo
     oscuro: {
@@ -175,15 +191,19 @@ const miami: Tema = {
       text_muted: '#9A86C2',
       text_subtle: '#8B78B5',
       danger: '#FF5C5C',
+      on_danger: '#2A0A12',
       danger_soft: '#4A1A2A',
       danger_border: '#8A2E45',
       warning: '#FFC145',
+      on_warning: '#2B1D00',
       warning_soft: '#3D2E1A',
       warning_border: '#7A5A22',
+      success: '#5FE3B0',
       info: '#2DE2E6',
       info_soft: '#12324A',
       info_border: '#1F6F7A',
       overlay: 'rgba(5, 2, 12, 0.6)',
+      shadow: '#000000',
     },
   },
 };

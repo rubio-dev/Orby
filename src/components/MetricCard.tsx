@@ -27,7 +27,7 @@ export function MetricCard({
         estilos.tarjeta,
         {
           backgroundColor: colores.surface,
-          borderColor: '#1A1D1C',
+          borderColor: colores.text,
         },
         anchoFijo && estilos.tarjetaAnchoFijo,
       ]}
@@ -46,13 +46,13 @@ export function MetricCard({
           <Ionicons
             name={cambioPorcentual >= 0 ? 'arrow-up' : 'arrow-down'}
             size={14}
-            color={cambioPorcentual >= 0 ? '#10B981' : colores.danger}
+            color={cambioPorcentual >= 0 ? colores.success : colores.danger}
           />
           <Text
             style={[
               tipografia.etiqueta,
               {
-                color: cambioPorcentual >= 0 ? '#10B981' : colores.danger,
+                color: cambioPorcentual >= 0 ? colores.success : colores.danger,
                 fontWeight: '600',
               },
             ]}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { espaciado, radios, tipografia } from '@/theme';
+import { espaciado, radios, tipografia, useTema } from '@/theme';
 
 type OpcionTab<T extends string> = {
   id: T;
@@ -21,6 +21,8 @@ export function SegmentedTabs<T extends string>({
   alSeleccionar,
   tipo = 'pills',
 }: SegmentedTabsProps<T>) {
+  const { colores } = useTema();
+
   return (
     <View style={estilos.contenedor}>
       {opciones.map((opcion) => {
@@ -35,7 +37,7 @@ export function SegmentedTabs<T extends string>({
               estilos.boton,
               tipo === 'tabs' ? estilos.tabGrande : estilos.pill,
               {
-                backgroundColor: estaActiva ? '#419582' : '#C7DFD7',
+                backgroundColor: estaActiva ? colores.primary : colores.primary_soft,
               },
             ]}
           >
@@ -44,7 +46,7 @@ export function SegmentedTabs<T extends string>({
                 tipografia.boton,
                 estilos.texto,
                 {
-                  color: estaActiva ? '#FFFFFF' : '#2D4E45',
+                  color: estaActiva ? colores.on_primary : colores.primary_strong,
                   fontWeight: estaActiva ? '700' : '600',
                 },
               ]}

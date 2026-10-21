@@ -1,6 +1,22 @@
 // TOKENS COMPARTIDOS
 // Medidas, radios y tipografía comunes a todos los temas (fuente: docs/design-system.md)
-// Los colores viven en themes.ts porque son lo único que cambia entre temas
+// Los colores de la interfaz viven en themes.ts porque son lo que cambia entre temas
+
+// COLORES DE MARCA
+// El logotipo de Orby es una ilustración fija: no cambia con el tema ni con el modo.
+// Por eso no son tokens semánticos de las paletas, sino constantes de la marca.
+export const coloresMarca = {
+  lima: '#A4D867',
+  turquesa: '#44B99D',
+  verde: '#388D79',
+  anillo: '#4ABFA5',
+  cafe_oscuro: '#4A2612',
+  blanco: '#FFFFFF',
+  cafe_claro: '#8A512D',
+  planeta: '#52C4AA',
+  planeta_borde: '#3A9F88',
+  texto: '#3E2312',
+} as const;
 
 // ESPACIADO
 // Escala base de 4 px; 'pantalla' es el margen lateral de todas las vistas

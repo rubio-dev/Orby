@@ -23,11 +23,11 @@ export function UserHeader({ nombre, rol, tamanoAvatar = 100 }: UserHeaderProps)
             width: tamanoAvatar,
             height: tamanoAvatar,
             borderRadius: tamanoAvatar / 2,
-            backgroundColor: '#2F5245',
+            backgroundColor: colores.avatar,
           },
         ]}
       >
-        <Ionicons name="person" size={tamanoAvatar * 0.65} color="#8DA99E" style={estilos.iconoAvatar} />
+        <Ionicons name="person" size={tamanoAvatar * 0.65} color={colores.text_muted} style={estilos.iconoAvatar} />
       </View>
 
       {/* Saludo y Nombre */}

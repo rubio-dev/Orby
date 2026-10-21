@@ -51,12 +51,12 @@ export function CustomInput({
           estilos.campoContenedor,
           variante === 'relleno'
             ? {
-                backgroundColor: '#DFE5E2',
+                backgroundColor: colores.surface_muted,
                 borderRadius: radios.lg,
               }
             : {
                 backgroundColor: colores.surface,
-                borderColor: '#1A1D1C',
+                borderColor: colores.text,
                 borderWidth: 1.5,
                 borderRadius: radios.lg,
               },
@@ -64,7 +64,7 @@ export function CustomInput({
         ]}
       >
         <TextInput
-          placeholderTextColor="#7E8582"
+          placeholderTextColor={colores.text_muted}
           secureTextEntry={esCampoSeguro}
           style={[
             estilos.input,
@@ -84,7 +84,7 @@ export function CustomInput({
             <Ionicons
               name={mostrarContrasena ? 'eye-outline' : 'eye-off-outline'}
               size={22}
-              color="#1A1D1C"
+              color={colores.text}
             />
           </TouchableOpacity>
         )}
@@ -96,7 +96,7 @@ export function CustomInput({
             onPress={onPressIconoDerecha}
             disabled={!onPressIconoDerecha}
           >
-            <Ionicons name={iconoDerecha} size={22} color="#1A1D1C" />
+            <Ionicons name={iconoDerecha} size={22} color={colores.text} />
           </TouchableOpacity>
         )}
       </View>

@@ -6,11 +6,11 @@ import { espaciado, radios, tipografia, useTema, type ColoresTema } from '@/them
 // VARIABLES
 // Agrupación de los tokens de color para mostrarlos ordenados
 const grupos_colores: { titulo: string; tokens: (keyof ColoresTema)[] }[] = [
-  { titulo: 'Fondos', tokens: ['background', 'background_auth', 'surface', 'surface_muted', 'placeholder', 'avatar', 'overlay'] },
+  { titulo: 'Fondos', tokens: ['background', 'background_auth', 'surface', 'surface_muted', 'placeholder', 'avatar', 'overlay', 'shadow'] },
   { titulo: 'Primario', tokens: ['primary', 'on_primary', 'primary_strong', 'primary_soft', 'primary_subtle'] },
   { titulo: 'Bordes', tokens: ['border', 'border_strong', 'border_dashed', 'divider'] },
   { titulo: 'Texto', tokens: ['text', 'text_secondary', 'text_muted', 'text_subtle'] },
-  { titulo: 'Estados', tokens: ['danger', 'danger_soft', 'danger_border', 'warning', 'warning_soft', 'warning_border', 'info', 'info_soft', 'info_border'] },
+  { titulo: 'Estados', tokens: ['danger', 'on_danger', 'danger_soft', 'danger_border', 'warning', 'on_warning', 'warning_soft', 'warning_border', 'success', 'info', 'info_soft', 'info_border'] },
 ];
 
 // Pares texto/fondo que usa el diseño, con el contraste mínimo que deben cumplir
@@ -25,8 +25,11 @@ const pares_contraste: { frente: keyof ColoresTema; fondo: keyof ColoresTema; mi
   { frente: 'primary', fondo: 'surface', minimo: 3 },
   { frente: 'primary_strong', fondo: 'primary_soft', minimo: 4.5 },
   { frente: 'danger', fondo: 'surface', minimo: 4.5 },
+  { frente: 'on_danger', fondo: 'danger', minimo: 4.5 },
   { frente: 'danger', fondo: 'danger_soft', minimo: 4.5 },
   { frente: 'warning', fondo: 'warning_soft', minimo: 4.5 },
+  { frente: 'on_warning', fondo: 'warning', minimo: 4.5 },
+  { frente: 'success', fondo: 'surface', minimo: 4.5 },
   { frente: 'info', fondo: 'info_soft', minimo: 4.5 },
 ];
 

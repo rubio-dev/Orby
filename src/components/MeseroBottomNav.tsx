@@ -109,7 +109,7 @@ export function MeseroBottomNav({ activa }: MeseroBottomNavProps) {
               />
               {tab.badge !== undefined && (
                 <View style={[estilos.badge, { backgroundColor: colores.danger }]}>
-                  <Text style={estilos.badgeTexto}>{tab.badge}</Text>
+                  <Text style={[estilos.badgeTexto, { color: colores.on_danger }]}>{tab.badge}</Text>
                 </View>
               )}
             </View>
@@ -158,7 +158,6 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 2,
   },
   badgeTexto: {
-    color: '#FFFFFF',
     fontSize: 9,
     fontWeight: '700',
   },

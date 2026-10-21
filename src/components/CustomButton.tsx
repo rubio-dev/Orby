@@ -35,27 +35,27 @@ export function CustomButton({
   const { colores } = useTema();
 
   let backgroundColor = colores.primary;
-  let textColor = '#FFFFFF';
+  let textColor = colores.on_primary;
   let borderWidth = 0;
   let borderColor = 'transparent';
 
   if (variante === 'dark') {
-    backgroundColor = '#101413';
-    textColor = '#FFFFFF';
+    backgroundColor = colores.text;
+    textColor = colores.background;
   } else if (variante === 'primary') {
-    backgroundColor = '#388D7A';
-    textColor = '#FFFFFF';
+    backgroundColor = colores.primary;
+    textColor = colores.on_primary;
   } else if (variante === 'secondary') {
     backgroundColor = colores.primary_soft;
     textColor = colores.primary_strong;
   } else if (variante === 'outline') {
     backgroundColor = 'transparent';
     borderWidth = 1.5;
-    borderColor = '#1A1D1C';
-    textColor = '#1A1D1C';
+    borderColor = colores.text;
+    textColor = colores.text;
   } else if (variante === 'danger') {
     backgroundColor = colores.danger;
-    textColor = '#FFFFFF';
+    textColor = colores.on_danger;
   }
 
   return (
