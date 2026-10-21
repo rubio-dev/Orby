@@ -12,7 +12,7 @@ Tres módulos:
 
 1. **Autenticación centralizada** con control de acceso basado en roles (RBAC), gestionado desde el backend.
 2. **Gestión de mesas** y ordenamiento cronológico de comandas.
-3. **Máquina de estados del pedido:** `pendiente → en preparación → listo`.
+3. **Máquina de estados del pedido:** `pendiente → en preparación → listo`. El esquema agrega `entregada` y `cancelada`; la app todavía no los usa.
 
 ### Servicios de información
 
@@ -26,7 +26,7 @@ Tres módulos:
 | Frontend: React Native | **Expo SDK 58** con **Expo Router** (rutas por archivo en `src/app/`) | Decidido |
 | Backend como servicio sobre PostgreSQL, vía API, con auth, base de datos y tiempo real | **Supabase** | Decidido |
 | Node.js con pnpm | Node 20.19+ y pnpm 11 | Decidido |
-| Librerías de componentes (Tailwind, ShadCN, etc.) | Por definir: shadcn/ui no funciona en React Native (ver [open-questions](open-questions.md)) | Pendiente |
+| Librerías de componentes (Tailwind, ShadCN, etc.) | **Componentes propios** con `StyleSheet` y tokens de `@/theme` (`src/components/`). Sin NativeWind ni React Native Reusables | Decidido |
 
 ## Cómo se cubre cada pieza con Supabase
 
@@ -37,8 +37,8 @@ Es una propuesta: el diseño de la base de datos lo define el compañero a cargo
 | Login con correo y contraseña | **Auth** |
 | Saber el rol del usuario y redirigirlo | Rol guardado en el perfil del empleado y leído después del login |
 | RBAC "desde el backend" | **RLS (Row Level Security)**: reglas en Postgres que limitan qué filas lee o modifica cada rol |
-| Comandas al instante entre mesero y cocina | **Realtime**: la app se suscribe a los cambios de las tablas de órdenes |
-| Aviso de "pedido listo" al mesero | **Realtime** dentro de la app. Las notificaciones push quedan pendientes (ver [open-questions](open-questions.md)) |
+| Comandas al instante entre mesero y cocina | **Realtime**: la app se suscribe a los cambios de las tablas de órdenes. **Propuesto:** todavía no hay suscripciones en el código (ver [open-questions](open-questions.md#técnico)) |
+| Aviso de "pedido listo" al mesero | **Realtime** dentro de la app. **Propuesto:** todavía no hay suscripciones; las notificaciones push quedan pendientes (ver [open-questions](open-questions.md#técnico)) |
 | Leer y escribir datos sin programar endpoints | **API REST automática (PostgREST)** a través de `supabase-js` |
 | Imagen de productos | **Storage** |
 | Crear cuentas de empleados desde el admin | **Edge Function**: requiere la llave secreta, que no puede ir en la app |
@@ -64,9 +64,16 @@ En los dos entornos, la app solo usa la **llave pública** (*publishable*). La c
 ```
 src/app/              Pantallas (Expo Router: cada archivo es una ruta)
 src/app/lab/          Laboratorio visual (solo en desarrollo)
+src/components/       Componentes propios (botones, inputs, cabeceras y navegación por rol)
+src/context/          Estado global: sesión, catálogo y comandas (AsyncStorage + Supabase)
 src/lab/              Secciones del laboratorio
 src/lib/env.ts        Variables de entorno (URL y llave pública) y si están completas
 src/lib/supabase.ts   Cliente de Supabase compartido: obtener_supabase()
-src/theme/            Tokens, temas (Orby y Miami) y proveedor de tema
+src/theme/            Tokens, temas (Orby y Miami), proveedor de tema y colores de marca
+src/types/            Tipos de usuarios, roles, productos, mesas y comandas
 supabase/config.toml  Configuración del Supabase local
+supabase/migrations/  Migraciones SQL de la base de datos
+supabase/schemas/     Esquemas declarativos de tablas, funciones y extensiones
+supabase/seed.sql     Catálogos, mesas, categorías y usuarios demo para local
+supabase/functions/   Edge Functions (registrar-empleado)
 ```
