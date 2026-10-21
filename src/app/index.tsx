@@ -33,23 +33,23 @@ export default function GeneralWelcomeScreen() {
   };
 
   return (
-    <SafeAreaView style={[estilos.pantalla, { backgroundColor: '#EEF4F2' }]}>
+    <SafeAreaView style={[estilos.pantalla, { backgroundColor: colores.background_auth }]}>
       <View style={estilos.contenedorContenido}>
         {/* Espacio superior */}
         <View style={estilos.superior} />
 
         {/* Logotipo principal Orby */}
         <View style={estilos.logoSeccion}>
-          <OrbyLogo size={190} showText={true} textColor="#3E2312" />
+          <OrbyLogo size={190} showText={true} textColor={colores.text} />
         </View>
 
         {/* Lema y descripción */}
         <View style={estilos.textosSeccion}>
-          <Text style={[estilos.lemaPrincipal, { color: '#0F1412' }]}>
+          <Text style={[estilos.lemaPrincipal, { color: colores.text }]}>
             Tu cafetería en órbita
           </Text>
 
-          <Text style={[estilos.descripcion, { color: '#1A1D1C' }]}>
+          <Text style={[estilos.descripcion, { color: colores.text }]}>
             Conecta personas,{'\n'}comandas y sabor.
           </Text>
         </View>
@@ -59,12 +59,15 @@ export default function GeneralWelcomeScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleComenzar}
-            style={[estilos.botonEntrar, { backgroundColor: colores.primary }]}
+            style={[
+              estilos.botonEntrar,
+              { backgroundColor: colores.primary, shadowColor: colores.shadow },
+            ]}
           >
-            <Text style={estilos.textoBotonEntrar}>
+            <Text style={[estilos.textoBotonEntrar, { color: colores.on_primary }]}>
               {usuario ? `Continuar (${usuario.nombre})` : 'Comenzar'}
             </Text>
-            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={{ marginLeft: 6 }} />
+            <Ionicons name="arrow-forward" size={20} color={colores.on_primary} style={{ marginLeft: 6 }} />
           </TouchableOpacity>
 
           {usuario && (
@@ -97,12 +100,12 @@ export default function GeneralWelcomeScreen() {
         <Svg width={width} height={140} viewBox="0 0 390 140" fill="none">
           <Path
             d="M-20 80 C 60 40 160 100 240 60 C 310 25 360 45 420 20 L 420 150 L -20 150 Z"
-            fill="#519787"
+            fill={colores.primary}
             opacity={0.9}
           />
           <Path
             d="M-30 110 C 70 65 190 90 280 50 C 340 20 380 40 430 35 L 430 150 L -30 150 Z"
-            fill="#3B8776"
+            fill={colores.primary_strong}
           />
         </Svg>
       </View>
@@ -160,7 +163,6 @@ const estilos = StyleSheet.create({
     height: 52,
     paddingHorizontal: espaciado.xxl,
     borderRadius: 26,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 4,
@@ -169,7 +171,6 @@ const estilos = StyleSheet.create({
   textoBotonEntrar: {
     fontFamily: fuentes.bold,
     fontSize: 17,
-    color: '#FFFFFF',
   },
   enlaceCambiarCuenta: {
     marginTop: espaciado.sm,

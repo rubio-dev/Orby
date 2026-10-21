@@ -161,7 +161,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={[estilos.pantalla, { backgroundColor: '#EEF4F2' }]}>
+    <SafeAreaView style={[estilos.pantalla, { backgroundColor: colores.background_auth }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
@@ -178,7 +178,7 @@ export default function LoginScreen() {
 
           {/* Título de bienvenida */}
           <View style={estilos.encabezado}>
-            <Text style={[estilos.titulo, { color: '#0F1412' }]}>
+            <Text style={[estilos.titulo, { color: colores.text }]}>
               {modo === 'iniciar_sesion' ? 'Bienvenido a Orby' : 'Nueva Cafetería'}
             </Text>
             <Text style={[estilos.subtitulo, { color: colores.text_secondary }]}>
@@ -189,7 +189,7 @@ export default function LoginScreen() {
           </View>
 
           {/* Selector de modo: Iniciar sesión vs Registrar Administrador */}
-          <View style={estilos.pestañasContenedor}>
+          <View style={[estilos.pestañasContenedor, { backgroundColor: colores.surface_muted }]}>
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => {
@@ -198,7 +198,7 @@ export default function LoginScreen() {
               }}
               style={[
                 estilos.pestañaBoton,
-                modo === 'iniciar_sesion' && estilos.pestañaActiva,
+                modo === 'iniciar_sesion' && { backgroundColor: colores.primary },
               ]}
             >
               <Text
@@ -206,7 +206,7 @@ export default function LoginScreen() {
                   estilos.pestañaTexto,
                   {
                     color:
-                      modo === 'iniciar_sesion' ? '#FFFFFF' : colores.text_secondary,
+                      modo === 'iniciar_sesion' ? colores.on_primary : colores.text_secondary,
                     fontWeight: modo === 'iniciar_sesion' ? '700' : '500',
                   },
                 ]}
@@ -223,7 +223,7 @@ export default function LoginScreen() {
               }}
               style={[
                 estilos.pestañaBoton,
-                modo === 'registrar_admin' && estilos.pestañaActiva,
+                modo === 'registrar_admin' && { backgroundColor: colores.primary },
               ]}
             >
               <Text
@@ -231,7 +231,7 @@ export default function LoginScreen() {
                   estilos.pestañaTexto,
                   {
                     color:
-                      modo === 'registrar_admin' ? '#FFFFFF' : colores.text_secondary,
+                      modo === 'registrar_admin' ? colores.on_primary : colores.text_secondary,
                     fontWeight: modo === 'registrar_admin' ? '700' : '500',
                   },
                 ]}
@@ -244,9 +244,9 @@ export default function LoginScreen() {
           {/* Formulario */}
           <View style={estilos.formulario}>
             {errorMensaje && (
-              <View style={estilos.cajaError}>
-                <Ionicons name="alert-circle" size={18} color="#D93838" style={{ marginRight: 6 }} />
-                <Text style={[estilos.errorTexto, { color: '#D93838' }]}>
+              <View style={[estilos.cajaError, { backgroundColor: colores.danger_soft }]}>
+                <Ionicons name="alert-circle" size={18} color={colores.danger} style={{ marginRight: 6 }} />
+                <Text style={[estilos.errorTexto, { color: colores.danger }]}>
                   {errorMensaje}
                 </Text>
               </View>
@@ -294,36 +294,36 @@ export default function LoginScreen() {
                   onPress={handleOlvidoContrasena}
                   style={estilos.enlaceOlvido}
                 >
-                  <Text style={[estilos.textoOlvido, { color: '#1A1D1C' }]}>
+                  <Text style={[estilos.textoOlvido, { color: colores.text }]}>
                     ¿Olvidaste tu contraseña?
                   </Text>
                 </TouchableOpacity>
 
                 {/* Accesos rápidos de demostración */}
-                <View style={estilos.seccionDemo}>
+                <View style={[estilos.seccionDemo, { borderTopColor: colores.border }]}>
                   <Text style={[tipografia.micro, { color: colores.text_muted, textAlign: 'center', marginBottom: 8 }]}>
                     ACCESO RÁPIDO PARA PRUEBAS:
                   </Text>
                   <View style={estilos.filaDemo}>
                     <TouchableOpacity
                       onPress={() => handleAccesoRapido('administrador')}
-                      style={[estilos.chipDemo, { backgroundColor: '#388D7A' }]}
+                      style={[estilos.chipDemo, { backgroundColor: colores.primary }]}
                     >
-                      <Text style={estilos.textoChipDemo}>Admin</Text>
+                      <Text style={[estilos.textoChipDemo, { color: colores.on_primary }]}>Admin</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       onPress={() => handleAccesoRapido('mesero')}
-                      style={[estilos.chipDemo, { backgroundColor: '#388D7A' }]}
+                      style={[estilos.chipDemo, { backgroundColor: colores.primary }]}
                     >
-                      <Text style={estilos.textoChipDemo}>Mesero</Text>
+                      <Text style={[estilos.textoChipDemo, { color: colores.on_primary }]}>Mesero</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       onPress={() => handleAccesoRapido('cocina')}
-                      style={[estilos.chipDemo, { backgroundColor: '#388D7A' }]}
+                      style={[estilos.chipDemo, { backgroundColor: colores.primary }]}
                     >
-                      <Text style={estilos.textoChipDemo}>Cocinero</Text>
+                      <Text style={[estilos.textoChipDemo, { color: colores.on_primary }]}>Cocinero</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -337,7 +337,7 @@ export default function LoginScreen() {
                         setModo('registrar_admin');
                         setErrorMensaje(null);
                       }}
-                      style={[estilos.enlaceAdmin, { color: '#2F7D6B' }]}
+                      style={[estilos.enlaceAdmin, { color: colores.primary }]}
                     >
                       Regístrate como Administrador
                     </Text>
@@ -347,7 +347,7 @@ export default function LoginScreen() {
                     ¿Eres empleado sin cuenta?{' '}
                     <Text
                       onPress={handleContactarAdmin}
-                      style={[estilos.enlaceAdmin, { color: '#2F7D6B' }]}
+                      style={[estilos.enlaceAdmin, { color: colores.primary }]}
                     >
                       Contacta al administrador
                     </Text>
@@ -435,7 +435,7 @@ export default function LoginScreen() {
                         setModo('iniciar_sesion');
                         setErrorMensaje(null);
                       }}
-                      style={[estilos.enlaceAdmin, { color: '#2F7D6B' }]}
+                      style={[estilos.enlaceAdmin, { color: colores.primary }]}
                     >
                       Inicia sesión
                     </Text>
@@ -485,7 +485,6 @@ const estilos = StyleSheet.create({
   },
   pestañasContenedor: {
     flexDirection: 'row',
-    backgroundColor: '#D7E3DF',
     borderRadius: 24,
     padding: 4,
     width: '100%',
@@ -499,9 +498,6 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 20,
   },
-  pestañaActiva: {
-    backgroundColor: '#2F7D6B',
-  },
   pestañaTexto: {
     fontFamily: fuentes.semibold,
     fontSize: 14,
@@ -513,7 +509,6 @@ const estilos = StyleSheet.create({
   cajaError: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FDECEC',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
@@ -544,7 +539,6 @@ const estilos = StyleSheet.create({
     marginTop: espaciado.lg,
     paddingTop: espaciado.md,
     borderTopWidth: 1,
-    borderTopColor: '#D3DDD9',
   },
   filaDemo: {
     flexDirection: 'row',
@@ -559,7 +553,6 @@ const estilos = StyleSheet.create({
   textoChipDemo: {
     fontFamily: fuentes.semibold,
     fontSize: 13,
-    color: '#FFFFFF',
   },
   pie: {
     marginTop: espaciado.lg,
