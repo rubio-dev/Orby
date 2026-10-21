@@ -49,11 +49,27 @@ El CLI de Supabase viene instalado como dependencia del proyecto. No hay que esc
 | Comando | Qué hace |
 |---|---|
 | `pnpm db:start:lite` | Levanta solo lo esencial: Postgres, login, API y tiempo real. **Recomendado si tu máquina tiene menos de 8 GB de RAM** |
+| `pnpm db:start:funcs` | Como el liviano, pero **con `edge-runtime`**: hace falta para probar el alta de empleados, que corre en una Edge Function |
 | `pnpm db:start` | Levanta todo, incluido **Studio**, el panel web para ver tablas y datos |
 | `pnpm db:status` | Muestra las URLs y llaves locales |
 | `pnpm db:stop` | Apaga los contenedores. Los datos se conservan para la próxima vez |
+| `pnpm supabase db reset` | Reconstruye la base desde cero: aplica todas las migraciones y vuelve a sembrar. **Córrelo cada vez que alguien cambie `migrations/` o `seed.sql`** |
 
 La primera vez tarda varios minutos porque descarga las imágenes de Docker. Después arranca en segundos.
+
+### Usuarios de prueba
+
+Los crea `supabase/seed.sql` al sembrar la base. Son solo para el Supabase local.
+
+| Correo | Contraseña | Rol |
+|---|---|---|
+| `admin@orby.com` | `admin123` | Administrador |
+| `mesero@orby.com` | `mesero123` | Mesero |
+| `cocina@orby.com` | `cocina123` | Cocina / barra |
+
+Los tres pertenecen a la misma cafetería demo. Si el login falla con un error 500
+(*"Database error querying schema"*), tu base viene de una siembra vieja: corre
+`pnpm supabase db reset`.
 
 ### Direcciones locales
 

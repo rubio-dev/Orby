@@ -47,6 +47,7 @@ const { colores } = useTema();
 - Nunca escribir un color en hexadecimal dentro de una pantalla o componente. Si falta un color, se agrega como token en **las 4 paletas**.
 - Los colores salen de `useTema()`. Las medidas y la tipografía se importan directo de los tokens.
 - Por ahora el tema y el modo viven en memoria: al reiniciar la app vuelven a Orby y al modo del sistema.
+- **En web la primera pasada siempre es en modo claro.** El render del servidor no tiene `window.matchMedia`, así que el ajuste del sistema se aplica justo después de hidratar (ver [decisions.md](decisions.md)). En nativo no aplica.
 
 **Excepción: el logotipo.** Los colores de la ilustración de Orby (`OrbyLogo`) son de marca y no cambian con el tema ni con el modo. Viven en `coloresMarca`, dentro de `src/theme/tokens.ts`, no en las paletas. El texto "Orby" sí usa `colores.text` para que se lea en modo oscuro.
 

@@ -22,11 +22,12 @@
    > **Estado actual (2026-10-20):** resuelto. `supabase/migrations/20261022000001_rls_por_rol_y_cafeteria.sql` reemplaza las políticas permisivas de `20261021000000_politicas_rls.sql` por reglas por rol y por cafetería, y le quita a `anon` todo permiso de escritura. Ver [decisions.md](decisions.md).
 3. **Lo que necesite la llave secreta va en una Edge Function**, nunca en la app. Por ejemplo, crear cuentas de empleados.
 4. **Los archivos `.env*` no se suben.** Solo se versiona `.env.example`, sin valores reales.
-5. **Los secretos en la nube se cargan por el panel o por CLI**, nunca en archivos del repo:
+5. **Revisa el correo de los commits antes del primer push del día:** `git config user.email` tiene que devolver el *noreply* de GitHub, no tu correo personal. La configuración es por repositorio y se pierde al volver a clonar; si se te escapa un commit con el correo personal, en un repo público queda en el historial para siempre.
+6. **Los secretos en la nube se cargan por el panel o por CLI**, nunca en archivos del repo:
    - Edge Functions: `pnpm supabase secrets set NOMBRE=valor`
    - GitHub Actions: *Settings → Secrets and variables → Actions*
    - Builds de EAS: `eas env:create`
-6. **Las capturas, los mockups y los datos de prueba** no deben mostrar llaves, correos reales ni datos de clientes.
+7. **Las capturas, los mockups y los datos de prueba** no deben mostrar llaves, correos reales ni datos de clientes.
 
 ## Qué protege el `.gitignore`
 

@@ -4,6 +4,13 @@ Cada decisión lleva su fecha, qué se decidió y por qué. Las más recientes v
 
 ---
 
+## 2026-10-20: El modo del sistema se aplica después de hidratar (solo web)
+
+- **Decisión:** en `src/theme/theme-provider.tsx`, el modo que sigue al sistema se resuelve hasta después de hidratar, con `useSyncExternalStore`. La primera pasada de web siempre sale en modo claro.
+- **Motivo:** el render del servidor no tiene `window.matchMedia`, así que `useColorScheme()` devolvía `null` y el modo salía `claro`; en el cliente, con el sistema en oscuro, salía `oscuro`. React detectaba el desfase y avisaba *"This won't be patched up"*: en atributos no lo corrige, así que el fondo se quedaba en `#F4F6F5` con el resto de la app en oscuro.
+- **Por qué `useSyncExternalStore` y no un efecto:** la versión con `useEffect` + `setState` la rechaza el lint con `react-hooks/set-state-in-effect`. `useSyncExternalStore` distingue el valor del servidor del del cliente, que es justo el problema.
+- **Alcance:** solo web. En nativo no hay render de servidor y la bandera vale `true` desde el principio, así que Expo Go no cambia.
+
 ## 2026-10-20: RLS por rol y por cafetería
 
 - **Decisión:** se reemplazan las políticas permisivas de `20261021000000_politicas_rls.sql` por políticas por rol y por cafetería, en `20261022000001_rls_por_rol_y_cafeteria.sql`. Se reusan las funciones auxiliares `mi_id_cafeteria()` y `mi_id_rol()` de `20261021000001_politicas_acceso.sql`.
