@@ -44,9 +44,11 @@
 - Cantidad
 - Especificaciones, por ejemplo "sin cebolla"
 
-**Estados de la orden**, que cambia cocina: `pendiente → en preparación → listo`. El esquema agrega `entregada` y `cancelada`; la app todavía no los usa.
+**Estados de la orden:** `abierta → cerrada`, más `cancelada`. La orden es la cuenta de una visita: se abre con el primer pedido, se le agregan productos mientras siga abierta y se cierra al pagar. No guarda el avance de la preparación.
 
-> **Observación:** según el flujo de cocina, también hay **estado y tiempo estimado por producto**, no solo por orden. Ver [open-questions](open-questions.md).
+**Estados de cada producto**, que cambia cocina: `pendiente → en preparación → listo → entregado`, más `cancelado`. Cada producto se prepara y se entrega por separado, y guarda su propia hora de alta (`fecha_creacion`) y su tiempo estimado.
+
+> **Nota:** el avance de la preparación vive solo en los productos. Si hace falta saber que una orden no tiene nada pendiente, se calcula a partir de sus detalles; ver [decisions.md](decisions.md).
 
 ## Estadísticos
 

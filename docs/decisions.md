@@ -4,6 +4,18 @@ Cada decisión lleva su fecha, qué se decidió y por qué. Las más recientes v
 
 ---
 
+## 2026-10-20: La comanda es la cuenta de una visita: abierta o cerrada
+
+- **Decisión:** la comanda representa la cuenta de una mesa mientras los clientes están en el local. Se abre al tomar el primer pedido y se le agregan productos mientras siga abierta. Al cerrarla, si los clientes piden algo más, va una comanda nueva.
+- **Estados de la comanda:** `abierta` (1), `cerrada` (2) y `cancelada` (3). Se quitaron `pendiente`, `en preparación`, `listo` y `entregada`, que eran los estados del producto copiados un nivel más arriba.
+- **Estados del producto:** siguen igual en `estado_detalles_comanda` (`pendiente`, `en preparación`, `listo`, `entregado`, `cancelado`). La preparación y la entrega son por producto: el café sale a los 3 minutos y el sándwich a los 10, y cada uno se lleva a la mesa cuando está.
+- **Motivo:** con la cuenta abierta, "listo" no es un estado estable de la comanda. Es cierto cinco minutos, hasta que piden un postre. Si hace falta saber si no hay nada pendiente, se calcula mirando los detalles en vez de guardarlo.
+- **Hora por producto:** `detalle_comanda` gana `fecha_creacion`. La espera se mide desde que se pide cada producto, no desde que se abrió la cuenta: un postre pedido a las 14:30 no lleva esperando desde la 13:00. También permite a la cocina separar lo que acaba de entrar de lo que ya se sirvió.
+- **Una cuenta por mesa:** un índice único parcial sobre `comanda (id_mesa) WHERE id_estado = 1` impide dos cuentas abiertas en la misma mesa, para que los productos no queden partidos en dos tickets.
+- **Migración:** `supabase/migrations/20261022000000_comanda_abierta_o_cerrada.sql`.
+- **Verificación:** las tres migraciones y `seed.sql` se aplican sin errores sobre un Postgres limpio; se probó que la segunda cuenta abierta en la misma mesa se rechaza, que al cerrar la primera la mesa admite otra, y que el detalle nuevo trae su `fecha_creacion`.
+- **Pendiente en la app:** `src/types/index.ts` (`EstadoComanda`) y los contextos de `src/context/` siguen con el vocabulario anterior (`'en preparación'`, `'listo'`) y con `id_estado` 2 y 3 escritos a mano. Se alinean cuando se conecten los contextos a Supabase; ver [open-questions](open-questions.md#técnico).
+
 ## 2026-10-20: Migración de colores fijos a tokens del tema
 
 - **Decisión:** todos los colores de `src/app/` y `src/components/` salen de `useTema()` (`colores.*`), salvo el logotipo (ver la entrada siguiente). Se eliminaron los hexadecimales y los `rgba(...)` de pantallas y componentes; los overlays usan `colores.overlay`.

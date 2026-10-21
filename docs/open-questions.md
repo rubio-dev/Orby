@@ -24,9 +24,9 @@ Cuando una se resuelve, se borra de aquí y se registra en [decisions.md](decisi
 ## Flujo y reglas de negocio
 
 - **Registro público de administrador y cafetería.** `src/app/login.tsx` ofrece "Registrar Admin" y `src/context/auth-context.tsx` llama `supabase.auth.signUp` con `rol: 'administrador'` y `nombre_cafeteria`; el trigger `handle_new_user` crea la cafetería. Esto contradice la suposición anterior de que no había registro público y convive con `enable_signup = true` en `supabase/config.toml`. ¿El alta de administradores es pública a propósito, debe ser por invitación o se quita? Si se desactiva el registro público, ese flujo deja de funcionar.
-- **¿Qué pasa después de "listo"?** El esquema tiene los estados `entregada` y `cancelada`, pero la app solo marca la comanda como `listo`; la mesa se libera a mano con `cambiarEstadoMesa`. ¿Quién marca la entrega y el pago, y cuándo vuelve a estar libre la mesa?
+- **¿Quién cierra la cuenta y libera la mesa?** Ya está decidido que la comanda es la cuenta de la visita y que la mesa se libera al cerrarla (ver [decisions.md](decisions.md)). Falta definir quién la cierra (el mesero desde la mesa, o la administración al cobrar) y si el cobro se registra en la app o solo en la caja.
 - **Mesa "apartada".** El esquema y la pantalla de mesas permiten el estado, pero ¿quién la aparta y para qué: reservaciones, mesas unidas?
-- **Tiempo promedio de atención.** Los inicios de mesero y cocina muestran `12 min` fijo. ¿Se mide desde que se crea la orden hasta que queda lista, o hasta que se entrega?
+- **Tiempo promedio de atención.** Los inicios de mesero y cocina muestran `12 min` fijo. Con la cuenta abierta la medida es por producto, desde su `fecha_creacion`: falta definir si se mide hasta que queda `listo` o hasta que se marca `entregado`. Si es lo segundo, hace falta guardar también esa hora en `detalle_comanda`.
 - **Variación porcentual (admin).** El contexto usa `17 %` y `8 %` fijos. ¿Contra qué se compara: contra el día anterior o contra el mismo día de la semana pasada?
 - **Reporte descargable.** El botón solo muestra un aviso que dice que se generó en PDF/Excel; no se crea ningún archivo. ¿En qué formato (PDF, CSV o Excel) y de qué periodo?
 
