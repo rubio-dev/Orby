@@ -3,6 +3,8 @@ import React, { createContext, useContext, useEffect, useState, type ReactNode }
 
 import {
   cambiar_contrasena_supabase,
+  con_reintentos,
+  MENSAJE_SIN_CONEXION,
   registrar_empleado_supabase,
   traducir_error,
 } from '@/lib/auth'; // Alta real de empleados y mensajes de error en español
@@ -79,13 +81,19 @@ type AuthContextType = {
   }) => Promise<{ exito: boolean; error?: string }>;
   cerrarSesion: () => Promise<void>;
   seleccionarUsuarioDemo: (rol: RolUsuario) => Promise<void>;
-  registrarPersonal: (datos: {
-    nombre: string;
-    correo: string;
-    contrasena: string;
-    rol: RolUsuario;
-  }) => Promise<{ exito: boolean; error?: string }>;
-  eliminarPersonal: (id_usuario: string) => Promise<void>;
+  registrarPersonal: (
+    datos: {
+      nombre: string;
+      correo: string;
+      contrasena: string;
+      rol: RolUsuario;
+    },
+    alReintentar?: (intentoActual: number, maxIntentos: number) => void
+  ) => Promise<{ exito: boolean; error?: string }>;
+  eliminarPersonal: (
+    id_usuario: string,
+    alReintentar?: (intentoActual: number, maxIntentos: number) => void
+  ) => Promise<{ exito: boolean; error?: string }>;
   cambiarContrasena: (
     nuevaContrasena: string,
     alReintentar?: (intentoActual: number, maxIntentos: number) => void
@@ -199,12 +207,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Registrar nuevo empleado (Cocinero o Mesero) por el Administrador
-  const registrarPersonal = async (datos: {
-    nombre: string;
-    correo: string;
-    contrasena: string;
-    rol: RolUsuario;
-  }) => {
+  const registrarPersonal = async (
+    datos: {
+      nombre: string;
+      correo: string;
+      contrasena: string;
+      rol: RolUsuario;
+    },
+    alReintentar?: (intentoActual: number, maxIntentos: number) => void
+  ) => {
     // 1. Regla de seguridad: Solo un Administrador puede registrar personal
     if (usuario?.rol !== 'administrador') {
       return { exito: false, error: 'Permisos insuficientes: solo el administrador puede registrar empleados.' };
@@ -212,10 +223,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const correoNormalizado = datos.correo.trim().toLowerCase();
 
-    // Validar duplicado en lista activa
-    const existe = listaPersonal.some((p) => p.correo.toLowerCase() === correoNormalizado);
-    if (existe) {
-      return { exito: false, error: 'Ya existe un empleado con este correo electrónico.' };
+    // Validar duplicado en lista activa solo en modo sin Supabase
+    if (!supabase_configurado) {
+      const existe = listaPersonal.some((p) => p.correo.toLowerCase() === correoNormalizado);
+      if (existe) {
+        return { exito: false, error: 'Ya existe un empleado con este correo electrónico.' };
+      }
     }
 
     const idRol = ID_ROLES[datos.rol];
@@ -237,13 +250,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { exito: false, error: 'Solo se puede registrar a meseros o cocina.' };
       }
 
-      const resultado = await registrar_empleado_supabase({
-        nombre: datos.nombre,
-        correo: correoNormalizado,
-        contrasena: datos.contrasena,
-        rol: datos.rol,
-        id_cafeteria: usuario.id_cafeteria, // La cafetería del administrador que lo registra
-      });
+      const resultado = await registrar_empleado_supabase(
+        {
+          nombre: datos.nombre,
+          correo: correoNormalizado,
+          contrasena: datos.contrasena,
+          rol: datos.rol,
+          id_cafeteria: usuario.id_cafeteria, // La cafetería del administrador que lo registra
+        },
+        alReintentar
+      );
 
       // Si Supabase rechazó el registro, se avisa y NO se agrega a la lista
       if (resultado.error || !resultado.id_usuario) {
@@ -260,24 +276,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { exito: true };
   };
 
-  const eliminarPersonal = async (id_usuario: string) => {
+  const eliminarPersonal = async (
+    id_usuario: string,
+    alReintentar?: (intentoActual: number, maxIntentos: number) => void
+  ): Promise<{ exito: boolean; error?: string }> => {
     if (usuario?.rol !== 'administrador') {
-      console.warn('Solo el administrador puede eliminar empleados.');
-      return;
+      return { exito: false, error: 'Solo el administrador puede eliminar empleados.' };
+    }
+
+    if (id_usuario === usuario.id_usuario) {
+      return { exito: false, error: 'No puedes eliminar tu propia cuenta.' };
+    }
+
+    if (supabase_configurado) {
+      const supabase = obtener_supabase();
+      // La baja se hace con la función eliminar_empleado (borra la cuenta en auth.users y, en cascada,
+      // su perfil) para que el correo quede libre y se pueda registrar de nuevo en el futuro.
+      const { resultado, fallo_red } = await con_reintentos<{ error: any }>(
+        async () => await supabase.rpc('eliminar_empleado', { p_id_usuario: id_usuario }),
+        alReintentar
+      );
+
+      if (fallo_red || !resultado) {
+        return { exito: false, error: MENSAJE_SIN_CONEXION };
+      }
+
+      if (resultado.error) {
+        const codigo: string = resultado.error.code ?? '';
+        const mensaje: string = resultado.error.message ?? '';
+
+        // La función aún no existe en este proyecto de Supabase
+        if (codigo === 'PGRST202' || mensaje.toLowerCase().includes('could not find the function')) {
+          return {
+            exito: false,
+            error: 'Falta aplicar la migración "eliminar_empleado" en Supabase. Avisa al responsable de la base de datos.',
+          };
+        }
+
+        // Mensajes en español lanzados por la propia función (permisos, empleado no encontrado)
+        if (codigo === '42501' || codigo === 'P0002') {
+          return { exito: false, error: mensaje };
+        }
+
+        return { exito: false, error: traducir_error(resultado.error) };
+      }
     }
 
     const filtrada = listaPersonal.filter((p) => p.id_usuario !== id_usuario);
     setListaPersonal(filtrada);
     await AsyncStorage.setItem(STORAGE_KEY_PERSONAL, JSON.stringify(filtrada));
 
-    if (supabase_configurado) {
-      try {
-        const supabase = obtener_supabase();
-        await supabase.from('usuario').delete().eq('id_usuario', id_usuario);
-      } catch (err) {
-        console.warn('Error al eliminar de Supabase:', err);
-      }
-    }
+    return { exito: true };
   };
 
   // Registrar nuevo Administrador y Cafetería (Inserciones en Supabase)

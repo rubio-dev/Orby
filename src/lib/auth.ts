@@ -8,6 +8,8 @@ import { obtener_supabase } from '@/lib/supabase';
 export const LARGO_MINIMO_CONTRASENA = 8;
 export const TIMEOUT_CONEXION_MS = 7000;
 export const MAX_INTENTOS_CONEXION = 3;
+export const MENSAJE_SIN_CONEXION =
+  'No se pudo conectar al servidor. Verifica tu conexión a internet e inténtalo de nuevo.';
 
 // TIPOS
 type ErrorSupabase = { message: string; code?: string | null } | null;
@@ -85,56 +87,8 @@ export function traducir_error(error: ErrorSupabase) {
   return `Error: ${error.message}`;
 }
 
-// REGISTRO DE EMPLEADOS EN SUPABASE (MESERO O COCINA)
-// El administrador ya tiene sesión iniciada. Si usáramos el cliente principal, signUp
-// cambiaría la sesión del administrador por la del empleado nuevo.
-// Por eso se crea un cliente TEMPORAL que no guarda sesión: registra al empleado y se descarta.
-// La función handle_new_user de la base de datos crea su perfil en public.usuario.
-// Nota: cuando se despliegue la Edge Function 'registrar-empleado' (supabase/functions), se puede
-// usar en lugar de esto; es más segura porque revisa en el servidor que quien registra sea administrador.
-export async function registrar_empleado_supabase(datos: {
-  nombre: string;
-  correo: string;
-  contrasena: string;
-  rol: 'mesero' | 'cocina';
-  id_cafeteria: string;
-}) {
-  const cliente_temporal = createClient(supabase_url, supabase_llave, {
-    auth: {
-      persistSession: false, // No guarda la sesión del empleado en el teléfono
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      storageKey: 'orby-registro-empleado', // Clave distinta para no chocar con la sesión del administrador
-    },
-  });
-
-  const { data, error } = await cliente_temporal.auth.signUp({
-    email: datos.correo.trim().toLowerCase(),
-    password: datos.contrasena,
-    options: {
-      data: {
-        rol: datos.rol, // 'mesero' o 'cocina' (texto exacto de la tabla role)
-        nombre: datos.nombre.trim(),
-        id_cafeteria: datos.id_cafeteria, // La función lo liga a la cafetería del administrador
-      },
-    },
-  });
-
-  if (error) {
-    return { id_usuario: null, error: traducir_error(error) };
-  }
-
-  // Con confirmación de correo activa, Supabase no marca error si el correo ya existe:
-  // devuelve un usuario sin identidades. Así lo detectamos.
-  if (!data.user || data.user.identities?.length === 0) {
-    return { id_usuario: null, error: 'Ya existe una cuenta con ese correo.' };
-  }
-
-  return { id_usuario: data.user.id, error: null };
-}
-
-// CAMBIO DE CONTRASEÑA DEL USUARIO AUTENTICADO CON REINTENTOS Y TIMEOUT
-function es_error_red_o_timeout(error: unknown): boolean {
+// DETECCIÓN DE ERRORES DE RED O TIMEOUT
+export function es_error_red_o_timeout(error: unknown): boolean {
   if (!error) return false;
   const mensaje =
     typeof error === 'object' && error !== null && 'message' in error
@@ -154,6 +108,127 @@ function es_error_red_o_timeout(error: unknown): boolean {
     mensaje.includes('fetch failed') ||
     nombre.includes('authretryablefetcherror')
   );
+}
+
+// UTILIDAD GENÉRICA CON REINTENTOS Y TIMEOUT (HASTA 3 INTENTOS ANTE ERROR DE RED O TIMEOUT)
+export async function con_reintentos<T>(
+  operacion: () => Promise<T>,
+  alReintentar?: (intentoActual: number, maxIntentos: number) => void
+): Promise<{ resultado: T | null; fallo_red: boolean }> {
+  for (let intento = 1; intento <= MAX_INTENTOS_CONEXION; intento++) {
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+      const promesaTimeout = new Promise<never>((_, reject) => {
+        timerId = setTimeout(() => {
+          reject(new Error('TIMEOUT_CONEXION'));
+        }, TIMEOUT_CONEXION_MS);
+      });
+
+      const res = await Promise.race([operacion(), promesaTimeout]);
+
+      if (timerId !== undefined) {
+        clearTimeout(timerId);
+      }
+
+      const posibleError =
+        res && typeof res === 'object' && 'error' in res
+          ? (res as { error: unknown }).error
+          : null;
+
+      if (posibleError && es_error_red_o_timeout(posibleError)) {
+        if (intento < MAX_INTENTOS_CONEXION) {
+          alReintentar?.(intento + 1, MAX_INTENTOS_CONEXION);
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          continue;
+        }
+        return { resultado: null, fallo_red: true };
+      }
+
+      return { resultado: res, fallo_red: false };
+    } catch (err: unknown) {
+      if (timerId !== undefined) {
+        clearTimeout(timerId);
+      }
+
+      if (es_error_red_o_timeout(err)) {
+        if (intento < MAX_INTENTOS_CONEXION) {
+          alReintentar?.(intento + 1, MAX_INTENTOS_CONEXION);
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          continue;
+        }
+        return { resultado: null, fallo_red: true };
+      }
+
+      throw err;
+    }
+  }
+
+  return { resultado: null, fallo_red: true };
+}
+
+// REGISTRO DE EMPLEADOS EN SUPABASE (MESERO O COCINA)
+// El administrador ya tiene sesión iniciada. Si usáramos el cliente principal, signUp
+// cambiaría la sesión del administrador por la del empleado nuevo.
+// Por eso se crea un cliente TEMPORAL que no guarda sesión: registra al empleado y se descarta.
+// La función handle_new_user de la base de datos crea su perfil en public.usuario.
+// Nota: cuando se despliegue la Edge Function 'registrar-empleado' (supabase/functions), se puede
+// usar en lugar de esto; es más segura porque revisa en el servidor que quien registra sea administrador.
+export async function registrar_empleado_supabase(
+  datos: {
+    nombre: string;
+    correo: string;
+    contrasena: string;
+    rol: 'mesero' | 'cocina';
+    id_cafeteria: string;
+  },
+  alReintentar?: (intentoActual: number, maxIntentos: number) => void
+): Promise<{ id_usuario: string | null; error: string | null }> {
+  const cliente_temporal = createClient(supabase_url, supabase_llave, {
+    auth: {
+      persistSession: false, // No guarda la sesión del empleado en el teléfono
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storageKey: 'orby-registro-empleado', // Clave distinta para no chocar con la sesión del administrador
+    },
+  });
+
+  const { resultado, fallo_red } = await con_reintentos<{
+    data: { user: { id: string; identities?: unknown[] } | null } | null;
+    error: ErrorSupabase;
+  }>(
+    () =>
+      (cliente_temporal.auth as any).signUp({
+        email: datos.correo.trim().toLowerCase(),
+        password: datos.contrasena,
+        options: {
+          data: {
+            rol: datos.rol, // 'mesero' o 'cocina' (texto exacto de la tabla role)
+            nombre: datos.nombre.trim(),
+            id_cafeteria: datos.id_cafeteria, // La función lo liga a la cafetería del administrador
+          },
+        },
+      }),
+    alReintentar
+  );
+
+  if (fallo_red || !resultado) {
+    return { id_usuario: null, error: MENSAJE_SIN_CONEXION };
+  }
+
+  const { data, error } = resultado;
+
+  if (error) {
+    return { id_usuario: null, error: traducir_error(error) };
+  }
+
+  // Con confirmación de correo activa, Supabase no marca error si el correo ya existe:
+  // devuelve un usuario sin identidades. Así lo detectamos.
+  if (!data || !data.user || data.user.identities?.length === 0) {
+    return { id_usuario: null, error: 'Ya existe una cuenta con ese correo.' };
+  }
+
+  return { id_usuario: data.user.id, error: null };
 }
 
 export async function cambiar_contrasena_supabase(
@@ -225,8 +300,7 @@ export async function cambiar_contrasena_supabase(
           }
           return {
             exito: false,
-            error:
-              'No se pudo conectar al servidor. Verifica tu conexión a internet e inténtalo de nuevo.',
+            error: MENSAJE_SIN_CONEXION,
           };
         }
 
@@ -247,8 +321,7 @@ export async function cambiar_contrasena_supabase(
         }
         return {
           exito: false,
-          error:
-            'No se pudo conectar al servidor. Verifica tu conexión a internet e inténtalo de nuevo.',
+          error: MENSAJE_SIN_CONEXION,
         };
       }
 
@@ -264,6 +337,6 @@ export async function cambiar_contrasena_supabase(
 
   return {
     exito: false,
-    error: 'No se pudo conectar al servidor. Verifica tu conexión a internet e inténtalo de nuevo.',
+    error: MENSAJE_SIN_CONEXION,
   };
 }
