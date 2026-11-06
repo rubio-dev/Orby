@@ -1,10 +1,13 @@
 import { createClient } from '@supabase/supabase-js'; // Para crear un cliente temporal al registrar empleados
 
 import { supabase_llave, supabase_url } from '@/lib/env'; // Datos de conexión leídos de .env
+import { obtener_supabase } from '@/lib/supabase';
 
 // CONSTANTES
 // El mockup pide 8 caracteres; supabase/config.toml permite 6, así que 8 cumple con ambos
 export const LARGO_MINIMO_CONTRASENA = 8;
+export const TIMEOUT_CONEXION_MS = 7000;
+export const MAX_INTENTOS_CONEXION = 3;
 
 // TIPOS
 type ErrorSupabase = { message: string; code?: string | null } | null;
@@ -50,8 +53,20 @@ export function traducir_error(error: ErrorSupabase) {
     return 'Falta confirmar el correo. Revisa tu bandeja de entrada.';
   }
 
-  if (codigo === 'weak_password' || mensaje.includes('password should be')) {
+  if (codigo === 'same_password' || mensaje.includes('different from the old password')) {
+    return 'La nueva contraseña debe ser diferente a la actual.';
+  }
+
+  if (codigo === 'weak_password' || mensaje.includes('password should be at least')) {
     return 'La contraseña es muy débil. Usa al menos 8 caracteres.';
+  }
+
+  if (
+    codigo === 'session_not_found' ||
+    mensaje.includes('auth session missing') ||
+    mensaje.includes('session_not_found')
+  ) {
+    return 'Tu sesión ha expirado o estás en modo demostración. Inicia sesión nuevamente con tu cuenta real.';
   }
 
   if (codigo.startsWith('over_') || mensaje.includes('rate limit')) {
@@ -116,4 +131,139 @@ export async function registrar_empleado_supabase(datos: {
   }
 
   return { id_usuario: data.user.id, error: null };
+}
+
+// CAMBIO DE CONTRASEÑA DEL USUARIO AUTENTICADO CON REINTENTOS Y TIMEOUT
+function es_error_red_o_timeout(error: unknown): boolean {
+  if (!error) return false;
+  const mensaje =
+    typeof error === 'object' && error !== null && 'message' in error
+      ? String((error as { message: unknown }).message).toLowerCase()
+      : String(error).toLowerCase();
+  const nombre =
+    typeof error === 'object' && error !== null && 'name' in error
+      ? String((error as { name: unknown }).name).toLowerCase()
+      : '';
+
+  return (
+    mensaje.includes('timeout_conexion') ||
+    mensaje.includes('timeout') ||
+    mensaje.includes('failed to fetch') ||
+    mensaje.includes('network request failed') ||
+    mensaje.includes('networkerror') ||
+    mensaje.includes('fetch failed') ||
+    nombre.includes('authretryablefetcherror')
+  );
+}
+
+export async function cambiar_contrasena_supabase(
+  nuevaContrasena: string,
+  alReintentar?: (intentoActual: number, maxIntentos: number) => void,
+  correoActual?: string
+): Promise<{ exito: boolean; error: string | null }> {
+  const supabase = obtener_supabase();
+  const cliente_verificacion = correoActual
+    ? createClient(supabase_url, supabase_llave, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          storageKey: 'orby-verificar-contrasena',
+        },
+      })
+    : null;
+
+  for (let intento = 1; intento <= MAX_INTENTOS_CONEXION; intento++) {
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+      const promesaTimeout = new Promise<never>((_, reject) => {
+        timerId = setTimeout(() => {
+          reject(new Error('TIMEOUT_CONEXION'));
+        }, TIMEOUT_CONEXION_MS);
+      });
+
+      const ejecutarOperacion = async () => {
+        // 1. Verificar en Supabase Auth (por comparación de hash bcrypt en el servidor)
+        //    si la nueva contraseña es igual a la contraseña activa en auth.users.
+        if (cliente_verificacion && correoActual) {
+          const verificacion = await cliente_verificacion.auth.signInWithPassword({
+            email: correoActual.trim().toLowerCase(),
+            password: nuevaContrasena,
+          });
+
+          if (!verificacion.error && verificacion.data.user) {
+            return {
+              error: {
+                code: 'same_password',
+                message: 'New password should be different from the old password.',
+              },
+            };
+          }
+
+          if (verificacion.error && es_error_red_o_timeout(verificacion.error)) {
+            return { error: verificacion.error };
+          }
+        }
+
+        // 2. Si no es la misma contraseña, actualizar en Supabase Auth
+        return await supabase.auth.updateUser({ password: nuevaContrasena });
+      };
+
+      const resultado = await Promise.race([ejecutarOperacion(), promesaTimeout]);
+
+      if (timerId !== undefined) {
+        clearTimeout(timerId);
+      }
+
+      if (resultado.error) {
+        if (es_error_red_o_timeout(resultado.error)) {
+          if (intento < MAX_INTENTOS_CONEXION) {
+            alReintentar?.(intento + 1, MAX_INTENTOS_CONEXION);
+            await new Promise((resolve) => setTimeout(resolve, 800));
+            continue;
+          }
+          return {
+            exito: false,
+            error:
+              'No se pudo conectar al servidor. Verifica tu conexión a internet e inténtalo de nuevo.',
+          };
+        }
+
+        return { exito: false, error: traducir_error(resultado.error) };
+      }
+
+      return { exito: true, error: null };
+    } catch (err: any) {
+      if (timerId !== undefined) {
+        clearTimeout(timerId);
+      }
+
+      if (es_error_red_o_timeout(err)) {
+        if (intento < MAX_INTENTOS_CONEXION) {
+          alReintentar?.(intento + 1, MAX_INTENTOS_CONEXION);
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          continue;
+        }
+        return {
+          exito: false,
+          error:
+            'No se pudo conectar al servidor. Verifica tu conexión a internet e inténtalo de nuevo.',
+        };
+      }
+
+      return {
+        exito: false,
+        error: traducir_error({
+          message: err?.message ?? 'Error inesperado al actualizar la contraseña.',
+          code: err?.code ?? null,
+        }),
+      };
+    }
+  }
+
+  return {
+    exito: false,
+    error: 'No se pudo conectar al servidor. Verifica tu conexión a internet e inténtalo de nuevo.',
+  };
 }

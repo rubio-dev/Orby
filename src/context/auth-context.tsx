@@ -1,7 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-import { registrar_empleado_supabase, traducir_error } from '@/lib/auth'; // Alta real de empleados y mensajes de error en español
+import {
+  cambiar_contrasena_supabase,
+  registrar_empleado_supabase,
+  traducir_error,
+} from '@/lib/auth'; // Alta real de empleados y mensajes de error en español
 import { supabase_configurado } from '@/lib/env';
 import { obtener_supabase } from '@/lib/supabase';
 import { ID_ROLES, NOMBRES_ROLES, type RolUsuario, type Usuario } from '@/types';
@@ -82,6 +86,10 @@ type AuthContextType = {
     rol: RolUsuario;
   }) => Promise<{ exito: boolean; error?: string }>;
   eliminarPersonal: (id_usuario: string) => Promise<void>;
+  cambiarContrasena: (
+    nuevaContrasena: string,
+    alReintentar?: (intentoActual: number, maxIntentos: number) => void
+  ) => Promise<{ exito: boolean; error?: string }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -360,6 +368,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { exito: true };
   };
 
+  // Cambiar contraseña del usuario autenticado
+  const cambiarContrasena = async (
+    nuevaContrasena: string,
+    alReintentar?: (intentoActual: number, maxIntentos: number) => void
+  ): Promise<{ exito: boolean; error?: string }> => {
+    if (!usuario) {
+      return { exito: false, error: 'No hay una sesión activa.' };
+    }
+
+    if (!supabase_configurado) {
+      return {
+        exito: false,
+        error: 'No se pudo conectar al servidor. Verifica la configuración de Supabase.',
+      };
+    }
+
+    const resultado = await cambiar_contrasena_supabase(
+      nuevaContrasena,
+      alReintentar,
+      usuario.correo
+    );
+    return { exito: resultado.exito, error: resultado.error ?? undefined };
+  };
+
   // Cerrar sesión
   const cerrarSesion = async () => {
     setUsuario(null);
@@ -395,6 +427,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         seleccionarUsuarioDemo,
         registrarPersonal,
         eliminarPersonal,
+        cambiarContrasena,
       }}
     >
       {children}
