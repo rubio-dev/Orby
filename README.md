@@ -10,6 +10,9 @@ La descripción del proyecto, la arquitectura, las decisiones y los pendientes e
 |---|---|
 | [Expo](https://docs.expo.dev/) (SDK 58) + Expo Router | La app móvil (Android, iOS y web) |
 | [expo-image-picker](https://docs.expo.dev/versions/latest/sdk/imagepicker/) | Selección de fotos desde galería y toma de fotos con la cámara |
+| [expo-print](https://docs.expo.dev/versions/latest/sdk/print/) | Generación nativa de reportes en PDF a partir de plantillas HTML |
+| [expo-sharing](https://docs.expo.dev/versions/latest/sdk/sharing/) | Apertura del menú nativo (Share sheet) para previsualizar, compartir e imprimir reportes |
+| [expo-file-system](https://docs.expo.dev/versions/latest/sdk/filesystem/) | Almacenamiento seguro en caché de archivos generados antes de compartirlos |
 | [Supabase](https://supabase.com/docs) | Base de datos Postgres, login, API y tiempo real. Es nuestro backend: no hay un servidor propio |
 | Docker | Corre Supabase en local mientras desarrollamos |
 | pnpm | Gestor de paquetes del equipo (no usar npm ni yarn) |
@@ -191,6 +194,42 @@ En [`src/app/(admin)/new-product.tsx`](src/app/(admin)/new-product.tsx):
 
 - **Supabase Storage:** Al guardar o editar un producto, [`src/context/catalog-context.tsx`](src/context/catalog-context.tsx) sube la imagen al bucket público `productos` en la ruta `{id_cafeteria}/{id_producto}-{timestamp}.jpg` y guarda la URL pública generada en `producto.imagen_url`.
 - **Soporte offline y Docker local:** Si no hay conexión o si se está trabajando en local con `pnpm db:start:lite` (modo liviano), la imagen se preserva de manera segura (con codificación base64 en `imagen_url` o en cola offline `@orby_cola_catalogo_${id_cafeteria}`) y se sincroniza en cuanto haya conexión disponible con el servidor.
+
+---
+
+## Reportes en PDF del Administrador (expo-print, expo-sharing y expo-file-system)
+
+Para la generación de reportes ejecutivos en el panel de inicio del Administrador (`src/app/(admin)/index.tsx`), se emplean los módulos oficiales de Expo para móviles sin requerir visor web ni herramientas externas pesadas:
+
+### 1. Instalación
+
+Se instalan mediante el comando oficial de Expo para asegurar compatibilidad con el SDK 58:
+
+```bash
+npx expo install expo-print expo-sharing expo-file-system
+```
+
+### 2. Configuración en `app.json`
+
+Expo agrega automáticamente el plugin en `app.json`:
+
+```json
+"plugins": [
+  "expo-router",
+  ...,
+  "expo-sharing"
+]
+```
+
+### 3. Funcionamiento
+
+- **[`expo-print`](https://docs.expo.dev/versions/latest/sdk/print/):** Transforma una plantilla HTML profesional con membrete dinámico de la cafetería activa autenticada en sesión (consultada en tiempo real desde la tabla `cafeteria`), métricas de caja (ventas, pedidos, ticket promedio) y desglose de productos en un archivo `.pdf` físico en memoria mediante `Print.printToFileAsync({ html })`.
+- **[`expo-file-system`](https://docs.expo.dev/versions/latest/sdk/filesystem/):** Copia el archivo temporal a una ruta accesible (`FileSystem.cacheDirectory`) asegurando que el proveedor de archivos de Android (`FileProvider`) tenga permisos completos de lectura.
+- **[`expo-sharing`](https://docs.expo.dev/versions/latest/sdk/sharing/):** Despliega la hoja nativa de compartir del sistema operativo móvil (`Sharing.shareAsync(rutaSegura, { mimeType: 'application/pdf', UTI: '.pdf' })`), permitiendo al usuario:
+  - Previsualizar el PDF en el visor nativo de Android / iOS.
+  - Compartir el corte por WhatsApp o correo.
+  - Guardarlo en Google Drive, Descargas o Archivos.
+  - Imprimirlo directamente en impresoras inalámbricas térmicas o de oficina.
 
 ---
 
