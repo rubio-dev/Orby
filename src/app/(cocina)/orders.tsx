@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -13,30 +15,52 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CocinaBottomNav } from '@/components/CocinaBottomNav';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedTabs } from '@/components/SegmentedTabs';
-import { useOrders } from '@/context/orders-context';
+import { clasificarComanda, minutosDeEspera, useKitchen } from '@/context/kitchen-context';
+import { AvisoSinConexion } from '@/kitchen/AvisoSinConexion';
+import { ESTADO_DETALLE, type ComandaCocina } from '@/lib/kitchen-network';
 import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme';
-import type { Comanda } from '@/types';
+
+// Cada 30 s se recalcula la espera de las tarjetas; más seguido no cambia el minuto mostrado
+const INTERVALO_RELOJ_MS = 30000;
 
 export default function CocinaOrdersScreen() {
   const router = useRouter();
   const { colores } = useTema();
-  const { comandas } = useOrders();
+  const { comandasAbiertas, cargando, recargando, recargar } = useKitchen();
 
   const [tabActual, setTabActual] = useState<'preparacion' | 'listos'>('preparacion');
-  const [tiempoActual] = useState(() => Date.now());
+  const [tiempoActual, setTiempoActual] = useState(() => Date.now());
 
-  const enPreparacion = comandas.filter((c) => c.id_estado === 2);
-  const listos = comandas.filter((c) => c.id_estado === 3);
+  // Reloj de la pantalla: la espera avanza sola aunque no llegue ningún cambio
+  useEffect(() => {
+    const intervalo = setInterval(() => setTiempoActual(Date.now()), INTERVALO_RELOJ_MS);
+    return () => clearInterval(intervalo);
+  }, []);
+
+  // "En preparación": a la comanda le falta algún producto. "Listos": ya no le falta nada.
+  // Las que ya se entregaron completas no se muestran: para la cocina no hay nada que hacer.
+  // Primero las que más llevan esperando, para que la cocina las atienda antes.
+  const { enPreparacion, listos } = useMemo(() => {
+    const porEspera = (a: ComandaCocina, b: ComandaCocina) =>
+      minutosDeEspera(b, tiempoActual) - minutosDeEspera(a, tiempoActual);
+    return {
+      enPreparacion: comandasAbiertas
+        .filter((c) => clasificarComanda(c) === 'preparacion')
+        .sort(porEspera),
+      listos: comandasAbiertas.filter((c) => clasificarComanda(c) === 'listos').sort(porEspera),
+    };
+  }, [comandasAbiertas, tiempoActual]);
 
   const listaMostrar = tabActual === 'preparacion' ? enPreparacion : listos;
 
-  const calcularMinutosTranscurridos = (fechaIso: string) => {
-    const diff = Math.floor((tiempoActual - new Date(fechaIso).getTime()) / 60000);
-    return Math.max(1, diff);
-  };
-
-  const renderComanda = ({ item }: { item: Comanda }) => {
-    const minutos = calcularMinutosTranscurridos(item.fecha_creacion);
+  const renderComanda = ({ item }: { item: ComandaCocina }) => {
+    // Mínimo 1 min, como en el diseño original: "0 min" se lee como si no hubiera espera
+    const minutos = Math.max(1, minutosDeEspera(item, tiempoActual));
+    // En la tarjeta solo va lo que la cocina tiene que preparar o ya preparó;
+    // lo entregado o cancelado ya no es asunto de la cocina
+    const productosVisibles = item.detalles.filter(
+      (d) => d.id_estado !== ESTADO_DETALLE.entregado && d.id_estado !== ESTADO_DETALLE.cancelado
+    );
 
     return (
       <TouchableOpacity
@@ -55,7 +79,7 @@ export default function CocinaOrdersScreen() {
             Mesa {item.num_mesa}
           </Text>
 
-          {item.detalles.map((d) => (
+          {productosVisibles.map((d) => (
             <Text key={d.id_detalle} style={[estilos.itemPlatillo, { color: colores.text_secondary }]}>
               {d.cantidad} {d.nombre_producto}
             </Text>
@@ -73,7 +97,7 @@ export default function CocinaOrdersScreen() {
 
           <View style={[estilos.chipEstado, { backgroundColor: colores.primary_soft }]}>
             <Text style={[estilos.textoChipEstado, { color: colores.primary_strong }]}>
-              {item.id_estado === 2 ? 'En preparación' : 'Listo'}
+              {tabActual === 'preparacion' ? 'En preparación' : 'Listo'}
             </Text>
           </View>
         </View>
@@ -87,6 +111,9 @@ export default function CocinaOrdersScreen() {
         titulo="Comandas"
         onBack={() => router.push('/(cocina)' as any)}
       />
+
+      {/* Solo aparece sin conexión o con cambios por enviar */}
+      <AvisoSinConexion />
 
       <View style={estilos.contenido}>
         {/* Pestañas: En preparación (X) | Listos (Y) */}
@@ -107,13 +134,28 @@ export default function CocinaOrdersScreen() {
           renderItem={renderComanda}
           contentContainerStyle={estilos.lista}
           showsVerticalScrollIndicator={false}
+          // Deslizar hacia abajo: envía lo pendiente y vuelve a pedir las comandas
+          refreshControl={
+            <RefreshControl
+              refreshing={recargando}
+              onRefresh={() => recargar({ manual: true })}
+              tintColor={colores.primary}
+              colors={[colores.primary]}
+            />
+          }
           ListEmptyComponent={
-            <View style={estilos.vacio}>
-              <Ionicons name="checkmark-circle-outline" size={48} color={colores.primary} />
-              <Text style={[tipografia.cuerpo, { color: colores.text_muted, marginTop: espaciado.md }]}>
-                No hay comandas en este estado
-              </Text>
-            </View>
+            cargando ? (
+              <View style={estilos.vacio}>
+                <ActivityIndicator size="large" color={colores.primary} />
+              </View>
+            ) : (
+              <View style={estilos.vacio}>
+                <Ionicons name="checkmark-circle-outline" size={48} color={colores.primary} />
+                <Text style={[tipografia.cuerpo, { color: colores.text_muted, marginTop: espaciado.md }]}>
+                  No hay comandas en este estado
+                </Text>
+              </View>
+            )
           }
         />
       </View>
