@@ -98,15 +98,36 @@ export function es_error_red_o_timeout(error: unknown): boolean {
     typeof error === 'object' && error !== null && 'name' in error
       ? String((error as { name: unknown }).name).toLowerCase()
       : '';
+  const codigo =
+    typeof error === 'object' && error !== null && 'code' in error
+      ? String((error as { code: unknown }).code).toLowerCase()
+      : '';
 
-  return (
-    mensaje.includes('timeout_conexion') ||
-    mensaje.includes('timeout') ||
-    mensaje.includes('failed to fetch') ||
-    mensaje.includes('network request failed') ||
-    mensaje.includes('networkerror') ||
-    mensaje.includes('fetch failed') ||
-    nombre.includes('authretryablefetcherror')
+  const patrones = [
+    'timeout_conexion',
+    'timeout',
+    'failed to fetch',
+    'network request failed',
+    'networkerror',
+    'network error',
+    'fetch failed',
+    'name resolution failed',
+    'unknownhost',
+    'connection refused',
+    'econnrefused',
+    'enotfound',
+    'failed to connect',
+    'socket',
+    'ehostunreach',
+    'enetunreach',
+    'econnreset',
+    'eai_again',
+    'net::',
+    'authretryablefetcherror',
+  ];
+
+  return patrones.some(
+    (p) => mensaje.includes(p) || nombre.includes(p) || codigo.includes(p)
   );
 }
 

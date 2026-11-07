@@ -9,6 +9,7 @@ La descripción del proyecto, la arquitectura, las decisiones y los pendientes e
 | Pieza | Para qué |
 |---|---|
 | [Expo](https://docs.expo.dev/) (SDK 58) + Expo Router | La app móvil (Android, iOS y web) |
+| [expo-image-picker](https://docs.expo.dev/versions/latest/sdk/imagepicker/) | Selección de fotos desde galería y toma de fotos con la cámara |
 | [Supabase](https://supabase.com/docs) | Base de datos Postgres, login, API y tiempo real. Es nuestro backend: no hay un servidor propio |
 | Docker | Corre Supabase en local mientras desarrollamos |
 | pnpm | Gestor de paquetes del equipo (no usar npm ni yarn) |
@@ -142,6 +143,54 @@ Cuando el proyecto esté listo para publicarse:
    ```
 
 Las tablas y permisos se escriben como **migraciones**: archivos `.sql` en `supabase/migrations/`, que se crean con `pnpm supabase migration new <nombre>`. Se prueban en local y `db push` las aplica en la nube. Así los dos entornos tienen la misma estructura y todo queda versionado en git.
+
+---
+
+## Imágenes de productos (expo-image-picker y Supabase Storage)
+
+Para la creación y edición de productos en el panel del administrador (`src/app/(admin)/new-product.tsx`), se utiliza [`expo-image-picker`](https://docs.expo.dev/versions/latest/sdk/imagepicker/) para permitir subir fotos desde la galería del dispositivo o capturarlas directamente con la cámara.
+
+### 1. Instalación
+
+Se instala utilizando el comando oficial de Expo para asegurar compatibilidad con la versión del SDK del proyecto (SDK 58):
+
+```bash
+npx expo install expo-image-picker
+```
+
+> **Importante:** Siempre se debe usar `npx expo install` en lugar de `pnpm add` para dependencias de Expo, ya que resuelve automáticamente la versión homologada y compatible con el SDK instalado.
+
+### 2. Configuración de permisos (`app.json`)
+
+Para que la aplicación declare los permisos necesarios en Android e iOS (tanto en desarrollo con Expo Go como en compilaciones para producción con EAS Build / Continuous Native Generation), el plugin está configurado en `app.json`:
+
+```json
+"plugins": [
+  "expo-router",
+  [
+    "expo-splash-screen",
+    { ... }
+  ],
+  [
+    "expo-image-picker",
+    {
+      "photosPermission": "Orby necesita acceso a tus fotos para seleccionar imágenes de productos.",
+      "cameraPermission": "Orby necesita acceso a tu cámara para tomar fotos de productos."
+    }
+  ]
+]
+```
+
+### 3. Uso en la aplicación
+
+En [`src/app/(admin)/new-product.tsx`](src/app/(admin)/new-product.tsx):
+- **Galería:** Solicita permiso con `ImagePicker.requestMediaLibraryPermissionsAsync()` y abre el selector con `ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7, base64: true })`.
+- **Cámara:** Solicita permiso con `ImagePicker.requestCameraPermissionsAsync()` y abre la cámara nativa con `ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.7, base64: true })`.
+
+### 4. Almacenamiento y persistencia
+
+- **Supabase Storage:** Al guardar o editar un producto, [`src/context/catalog-context.tsx`](src/context/catalog-context.tsx) sube la imagen al bucket público `productos` en la ruta `{id_cafeteria}/{id_producto}-{timestamp}.jpg` y guarda la URL pública generada en `producto.imagen_url`.
+- **Soporte offline y Docker local:** Si no hay conexión o si se está trabajando en local con `pnpm db:start:lite` (modo liviano), la imagen se preserva de manera segura (con codificación base64 en `imagen_url` o en cola offline `@orby_cola_catalogo_${id_cafeteria}`) y se sincroniza en cuanto haya conexión disponible con el servidor.
 
 ---
 

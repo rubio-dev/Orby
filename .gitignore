@@ -33,6 +33,7 @@ yarn-error.*
 # Variables de entorno: se ignoran todas (.env, .env.local, .env.production, supabase/.env...)
 # Solo se versiona la plantilla sin valores reales
 .env*
+*.env
 !.env.example
 
 # Credenciales de firma y publicación (EAS, Google Play, App Store)
