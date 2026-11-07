@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   Modal,
@@ -20,7 +22,8 @@ import { MetricCard } from '@/components/MetricCard';
 import { UserHeader } from '@/components/UserHeader';
 import { useAuth } from '@/context/auth-context';
 import { useCatalog } from '@/context/catalog-context';
-import { espaciado, fuentes, useTema } from '@/theme';
+import { useOrders } from '@/context/orders-context';
+import { espaciado, fuentes, radios, useTema } from '@/theme';
 import { es_error_red_o_timeout } from '@/lib/auth';
 import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
 import {
@@ -69,9 +72,11 @@ const formatearFechaDDMMAAAA = (fecha: Date) =>
 const obtenerDiasEnMes = (anio: number, mes: number) => new Date(anio, mes + 1, 0).getDate();
 
 export default function AdminHomeScreen() {
+  const router = useRouter();
   const { colores } = useTema();
   const { usuario } = useAuth();
   const { estadisticas, recargarEstadisticas, cargandoCatalogo } = useCatalog();
+  const { mesas } = useOrders();
   const [refrescandoManual, setRefrescandoManual] = useState(false);
 
   // Estados del modal interactivo de descarga de reporte
@@ -333,6 +338,44 @@ export default function AdminHomeScreen() {
             cambioPorcentual={estadisticas?.porcentaje_cambio_pedidos ?? 0}
           />
         </View>
+
+        {/* Acceso rápido a Gestión de mesas */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => router.push('/(admin)/tables')}
+          style={[
+            estilos.tarjetaAccesoMesas,
+            {
+              backgroundColor: colores.surface,
+              borderColor: colores.border,
+            },
+          ]}
+        >
+          <View
+            style={[
+              estilos.iconoAccesoMesas,
+              { backgroundColor: colores.primary_soft },
+            ]}
+          >
+            <Ionicons name="restaurant-outline" size={24} color={colores.primary_strong} />
+          </View>
+          <View style={estilos.infoAccesoMesas}>
+            <Text style={[estilos.tituloAccesoMesas, { color: colores.text }]}>
+              Gestión de mesas
+            </Text>
+            <Text style={[estilos.subtituloAccesoMesas, { color: colores.text_secondary }]}>
+              {mesas.length} {mesas.length === 1 ? 'mesa registrada' : 'mesas registradas'}
+            </Text>
+          </View>
+          <View
+            style={[
+              estilos.chevronContenedor,
+              { backgroundColor: colores.surface_muted },
+            ]}
+          >
+            <Ionicons name="chevron-forward" size={18} color={colores.text_secondary} />
+          </View>
+        </TouchableOpacity>
 
         {/* Tabla: Productos más vendidos */}
         <View style={estilos.seccionTabla}>
@@ -823,7 +866,42 @@ const estilos = StyleSheet.create({
     flexDirection: 'row',
     gap: espaciado.md,
     marginTop: espaciado.sm,
-    marginBottom: espaciado.lg,
+    marginBottom: espaciado.md,
+  },
+  tarjetaAccesoMesas: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: espaciado.md,
+    borderRadius: radios.lg,
+    borderWidth: 1.5,
+    marginBottom: espaciado.md,
+  },
+  iconoAccesoMesas: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: espaciado.md,
+  },
+  infoAccesoMesas: {
+    flex: 1,
+  },
+  tituloAccesoMesas: {
+    fontFamily: fuentes.bold,
+    fontSize: 16,
+    marginBottom: 2,
+  },
+  subtituloAccesoMesas: {
+    fontFamily: fuentes.regular,
+    fontSize: 13,
+  },
+  chevronContenedor: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   seccionTabla: {
     marginVertical: espaciado.sm,
