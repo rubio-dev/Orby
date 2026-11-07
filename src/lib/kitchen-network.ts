@@ -41,7 +41,9 @@ export const NOMBRES_ESTADO_DETALLE: Record<number, string> = {
   5: 'cancelado',
 };
 
-// tipo_notificacion 3 = 'producto_listo' (el aviso es por producto, no por comanda)
+// tipo_notificacion 1 = 'pedido_listo': un solo aviso cuando la cocina completa toda la comanda.
+// tipo_notificacion 3 = 'producto_listo': un aviso por producto marcado como listo.
+export const TIPO_NOTIFICACION_PEDIDO_LISTO = 1;
 export const TIPO_NOTIFICACION_PRODUCTO_LISTO = 3;
 
 // TIPOS DE DATOS DE COCINA
@@ -151,7 +153,10 @@ export type OperacionNotificacion = OperacionBase & {
   id_notificacion: string; // Se genera aquí para que reintentar no cree avisos repetidos
   id_cafeteria: string;
   id_usuario: string;
-  depende_de: string | null; // El cambio a "listo" que la origina; si ese se descarta, el aviso también
+  id_tipo: number; // TIPO_NOTIFICACION_PRODUCTO_LISTO o TIPO_NOTIFICACION_PEDIDO_LISTO
+  // Los cambios a "listo" que originan el aviso. Si TODOS se descartan, el aviso tampoco se
+  // envía; si al menos uno se aplicó, sí hay algo listo que avisar.
+  depende_de: string[];
 };
 
 export type OperacionCocina =
@@ -252,10 +257,50 @@ export function crearOperacionesCambioEstado(
     id_notificacion: generarUuid(),
     id_cafeteria: comanda.id_cafeteria,
     id_usuario: comanda.id_usuario,
-    depende_de: cambio.id_operacion,
+    id_tipo: TIPO_NOTIFICACION_PRODUCTO_LISTO,
+    depende_de: [cambio.id_operacion],
   };
 
   return [cambio, aviso];
+}
+
+// Botón "Completar": marca como listos los productos que falten (pendientes o en preparación)
+// y agrega UN solo aviso 'pedido_listo' para toda la comanda, en lugar de uno por producto.
+// No cierra la cuenta: eso lo hace quien cobra. Devuelve [] si no falta nada.
+export function crearOperacionesCompletarComanda(comanda: ComandaCocina): OperacionCocina[] {
+  const faltantes = comanda.detalles.filter(
+    (d) => d.id_estado === ESTADO_DETALLE.pendiente || d.id_estado === ESTADO_DETALLE.en_preparacion
+  );
+  if (faltantes.length === 0) return [];
+
+  const fecha = new Date().toISOString();
+  const cambios: OperacionEstadoDetalle[] = faltantes.map((detalle) => ({
+    tipo: 'estado_detalle',
+    id_operacion: generarUuid(),
+    id_comanda: comanda.id_comanda,
+    num_mesa: comanda.num_mesa,
+    nombre_producto: detalle.nombre_producto,
+    fecha,
+    id_detalle: detalle.id_detalle,
+    estado_anterior: detalle.id_estado,
+    estado_nuevo: ESTADO_DETALLE.listo,
+  }));
+
+  const aviso: OperacionNotificacion = {
+    tipo: 'notificacion',
+    id_operacion: generarUuid(),
+    id_comanda: comanda.id_comanda,
+    num_mesa: comanda.num_mesa,
+    nombre_producto: 'el pedido completo',
+    fecha,
+    id_notificacion: generarUuid(),
+    id_cafeteria: comanda.id_cafeteria,
+    id_usuario: comanda.id_usuario,
+    id_tipo: TIPO_NOTIFICACION_PEDIDO_LISTO,
+    depende_de: cambios.map((c) => c.id_operacion),
+  };
+
+  return [...cambios, aviso];
 }
 
 export function crearOperacionTiempoEstimado(
@@ -486,7 +531,7 @@ async function aplicarNotificacion(
         id_cafeteria: op.id_cafeteria,
         id_usuario: op.id_usuario,
         id_comanda: op.id_comanda,
-        id_tipo: TIPO_NOTIFICACION_PRODUCTO_LISTO,
+        id_tipo: op.id_tipo,
       })
   );
   if (fallo_red || !resultado) return { estado: 'detener', razon: 'red' };
@@ -510,8 +555,12 @@ export async function procesarCola(
   for (let i = 0; i < cola.length; i++) {
     const op = cola[i];
 
-    // El aviso de un cambio que no se aplicó tampoco se envía
-    if (op.tipo === 'notificacion' && op.depende_de && idsDescartados.has(op.depende_de)) {
+    // Si ninguno de los cambios que originan el aviso se aplicó, no hay nada listo que avisar
+    if (
+      op.tipo === 'notificacion' &&
+      op.depende_de.length > 0 &&
+      op.depende_de.every((id) => idsDescartados.has(id))
+    ) {
       idsDescartados.add(op.id_operacion);
       descartadas.push({ operacion: op, motivo: 'dependencia', mensaje: '' });
       continue;
