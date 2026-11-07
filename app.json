@@ -32,7 +32,15 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Orby necesita acceso a tus fotos para seleccionar imágenes de productos.",
+          "cameraPermission": "Orby necesita acceso a tu cámara para tomar fotos de productos."
+        }
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -7,9 +7,11 @@ import { SafeAreaView } from 'react-native-safe-area-context'; // Respeta el not
 import { AdminBottomNav } from '@/components/AdminBottomNav'; // Barra inferior del administrador
 import { ScreenHeader } from '@/components/ScreenHeader'; // Encabezado con flecha de regreso
 import { useAuth } from '@/context/auth-context'; // Administrador con sesión iniciada
+import { con_reintentos, MENSAJE_SIN_CONEXION } from '@/lib/auth'; // Manejo resiliente de red
+import { confirmarAccion, mostrarAviso } from '@/lib/confirm'; // Alertas y confirmaciones
 import { supabase_configurado } from '@/lib/env'; // Saber si hay conexión configurada
 import { obtener_supabase } from '@/lib/supabase'; // Cliente principal de Supabase
-import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme'; // Tema activo y tokens
+import { type ColoresTema, espaciado, fuentes, radios, tipografia, useTema } from '@/theme'; // Tema activo y tokens
 import { NOMBRES_ROLES } from '@/types'; // Nombre del rol a partir de su id
 
 // TIPOS
@@ -19,11 +21,38 @@ type Integrante = {
   id_rol: number;
 };
 
-// ETIQUETAS Y COLORES DE CADA ROL (mismos colores que usa el resto del diseño)
-const INFO_ROL: Record<string, { etiqueta: string; icono: keyof typeof Ionicons.glyphMap; color: string; fondo: string }> = {
-  administrador: { etiqueta: 'Administrador', icono: 'briefcase-outline', color: '#1F5A4C', fondo: '#DCEBE6' },
-  mesero: { etiqueta: 'Mesero', icono: 'receipt-outline', color: '#388D7A', fondo: '#DCEBE6' },
-  cocina: { etiqueta: 'Cocina / Barra', icono: 'restaurant-outline', color: '#C27803', fondo: '#F7EDD8' },
+// ETIQUETAS Y COLORES DE CADA ROL (resueltos con tokens del tema)
+const INFO_ROL: Record<
+  string,
+  {
+    etiqueta: string;
+    icono: keyof typeof Ionicons.glyphMap;
+    color: keyof ColoresTema;
+    fondo: keyof ColoresTema;
+    textoChip: keyof ColoresTema;
+  }
+> = {
+  administrador: {
+    etiqueta: 'Administrador',
+    icono: 'briefcase-outline',
+    color: 'primary_strong',
+    fondo: 'primary_soft',
+    textoChip: 'on_primary',
+  },
+  mesero: {
+    etiqueta: 'Mesero',
+    icono: 'receipt-outline',
+    color: 'primary',
+    fondo: 'primary_soft',
+    textoChip: 'on_primary',
+  },
+  cocina: {
+    etiqueta: 'Cocina / Barra',
+    icono: 'restaurant-outline',
+    color: 'warning',
+    fondo: 'warning_soft',
+    textoChip: 'on_warning',
+  },
 };
 
 // PANTALLA "ADMINISTRA TU CAFETERÍA Y A TU EQUIPO" ("/(admin)/staff")
@@ -33,63 +62,139 @@ const INFO_ROL: Record<string, { etiqueta: string; icono: keyof typeof Ionicons.
 export default function AdminStaffScreen() {
   const router = useRouter();
   const { colores } = useTema();
-  const { usuario } = useAuth();
+  const { usuario, eliminarPersonal } = useAuth();
 
   const [nombreCafeteria, setNombreCafeteria] = useState('');
   const [equipo, setEquipo] = useState<Integrante[] | null>(null); // null = cargando
   const [error, setError] = useState<string | null>(null);
+  const [falloRed, setFalloRed] = useState(false);
+  const [mensajeReintento, setMensajeReintento] = useState<string | null>(null);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
 
   const idCafeteria = usuario?.id_cafeteria;
+
+  const cargarEquipo = useCallback(
+    async (estaCancelado?: () => boolean) => {
+      const cancelado = () => (estaCancelado ? estaCancelado() : false);
+
+      if (!idCafeteria || !supabase_configurado) {
+        if (!cancelado()) {
+          setEquipo([]);
+        }
+        return;
+      }
+
+      setError(null);
+      setFalloRed(false);
+      setMensajeReintento(null);
+
+      const supabase = obtener_supabase();
+
+      const alReintentar = (intentoActual: number, maxIntentos: number) => {
+        if (!cancelado()) {
+          setMensajeReintento(
+            `Reintentando conexión con el servidor (intento ${intentoActual} de ${maxIntentos})...`
+          );
+        }
+      };
+
+      const { resultado, fallo_red } = await con_reintentos(async () => {
+        // 1. Nombre de la cafetería
+        const respCafeteria: { data: { nombre_cafeteria: string } | null; error: Error | null } = await supabase
+          .from('cafeteria')
+          .select('nombre_cafeteria')
+          .eq('id_cafeteria', idCafeteria)
+          .maybeSingle();
+
+        if (respCafeteria.error) {
+          throw respCafeteria.error;
+        }
+
+        // 2. Integrantes de la cafetería: primero el administrador, luego meseros y cocina
+        const respEquipo: { data: Integrante[] | null; error: Error | null } = await supabase
+          .from('usuario')
+          .select('id_usuario, nombre, id_rol')
+          .eq('id_cafeteria', idCafeteria)
+          .order('id_rol')
+          .order('nombre');
+
+        if (respEquipo.error) {
+          throw respEquipo.error;
+        }
+
+        return {
+          nombreCafeteria: respCafeteria.data?.nombre_cafeteria ?? '',
+          equipo: respEquipo.data ?? [],
+        };
+      }, alReintentar);
+
+      if (cancelado()) {
+        return;
+      }
+
+      setMensajeReintento(null);
+
+      if (fallo_red) {
+        setFalloRed(true);
+        setError(MENSAJE_SIN_CONEXION);
+        return;
+      }
+
+      if (resultado) {
+        setNombreCafeteria(resultado.nombreCafeteria);
+        setEquipo(resultado.equipo);
+        setError(null);
+      } else {
+        setError('No se pudo cargar la información del equipo.');
+      }
+    },
+    [idCafeteria]
+  );
 
   // Se consulta cada vez que la pantalla vuelve a mostrarse (por ejemplo, al regresar de registrar a alguien)
   useFocusEffect(
     useCallback(() => {
-      if (!idCafeteria || !supabase_configurado) {
-        setEquipo([]);
-        return;
-      }
-
-      let cancelado = false; // Evita guardar resultados si se salió de la pantalla
-      const supabase = obtener_supabase();
-
-      // 1. Nombre de la cafetería
-      supabase
-        .from('cafeteria')
-        .select('nombre_cafeteria')
-        .eq('id_cafeteria', idCafeteria)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (!cancelado && data) {
-            setNombreCafeteria(data.nombre_cafeteria);
-          }
-        });
-
-      // 2. Integrantes de la cafetería: primero el administrador, luego meseros y cocina
-      supabase
-        .from('usuario')
-        .select('id_usuario, nombre, id_rol')
-        .eq('id_cafeteria', idCafeteria)
-        .order('id_rol')
-        .order('nombre')
-        .then(({ data, error: errorConsulta }) => {
-          if (cancelado) {
-            return;
-          }
-
-          if (errorConsulta) {
-            setError(errorConsulta.message);
-            return;
-          }
-
-          setError(null);
-          setEquipo((data ?? []) as Integrante[]);
-        });
+      let cancelado = false;
+      cargarEquipo(() => cancelado);
 
       return () => {
         cancelado = true;
       };
-    }, [idCafeteria])
+    }, [cargarEquipo])
   );
+
+  const manejarEliminar = (integrante: Integrante) => {
+    if (eliminandoId) {
+      return;
+    }
+
+    confirmarAccion({
+      titulo: 'Eliminar empleado',
+      mensaje: `¿Seguro que deseas dar de baja a ${integrante.nombre}? Perderá el acceso a Orby.`,
+      textoConfirmar: 'Eliminar',
+      destructivo: true,
+      alConfirmar: async () => {
+        setEliminandoId(integrante.id_usuario);
+        try {
+          const resultado = await eliminarPersonal(integrante.id_usuario, (intentoActual, maxIntentos) => {
+            setMensajeReintento(
+              `Reintentando conexión con el servidor (intento ${intentoActual} de ${maxIntentos})...`
+            );
+          });
+
+          if (resultado.exito) {
+            setEquipo((prev) => (prev ? prev.filter((item) => item.id_usuario !== integrante.id_usuario) : []));
+            mostrarAviso('Empleado eliminado', `${integrante.nombre} fue dado de baja.`);
+          } else {
+            mostrarAviso('No se pudo eliminar', resultado.error ?? MENSAJE_SIN_CONEXION);
+          }
+        } finally {
+          setEliminandoId(null);
+          setMensajeReintento(null);
+        }
+      },
+    });
+  };
 
   return (
     <SafeAreaView style={[estilos.pantalla, { backgroundColor: colores.background }]} edges={['top']}>
@@ -130,25 +235,51 @@ export default function AdminStaffScreen() {
         {/* Lista del equipo */}
         <Text style={[estilos.titulo, { color: colores.text }]}>Tu equipo</Text>
 
-        {error && (
+        {mensajeReintento && (
+          <View style={estilos.filaReintento}>
+            <ActivityIndicator size="small" color={colores.primary} />
+            <Text style={[tipografia.detalle, { color: colores.text_secondary }]}>{mensajeReintento}</Text>
+          </View>
+        )}
+
+        {falloRed && (
+          <View style={estilos.bloqueFalloRed}>
+            <Text style={[tipografia.detalle, { color: colores.danger, textAlign: 'center' }]}>
+              {MENSAJE_SIN_CONEXION}
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                setEquipo(null);
+                cargarEquipo();
+              }}
+              style={[estilos.botonReintentar, { backgroundColor: colores.surface, borderColor: colores.border_strong }]}
+            >
+              <Ionicons name="refresh" size={16} color={colores.primary} />
+              <Text style={[tipografia.cuerpo_fuerte, { color: colores.primary }]}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {error && !falloRed && (
           <Text style={[tipografia.detalle, { color: colores.danger }]}>No se pudo cargar el equipo: {error}</Text>
         )}
 
-        {!error && equipo === null && <ActivityIndicator color={colores.primary} />}
+        {!error && !falloRed && equipo === null && <ActivityIndicator color={colores.primary} />}
 
-        {equipo !== null && (
+        {!falloRed && equipo !== null && (
           <View style={estilos.lista}>
             {equipo.map((integrante) => {
               const rol = NOMBRES_ROLES[integrante.id_rol] ?? 'mesero';
-              const info = INFO_ROL[rol];
+              const info = INFO_ROL[rol] ?? INFO_ROL.mesero;
 
               return (
                 <View
                   key={integrante.id_usuario}
                   style={[estilos.tarjetaEmpleado, { backgroundColor: colores.surface, borderColor: colores.border_strong }]}
                 >
-                  <View style={[estilos.avatar, { backgroundColor: info.fondo }]}>
-                    <Ionicons name={info.icono} size={22} color={info.color} />
+                  <View style={[estilos.avatar, { backgroundColor: colores[info.fondo] }]}>
+                    <Ionicons name={info.icono} size={22} color={colores[info.color]} />
                   </View>
 
                   <Text style={[tipografia.cuerpo_fuerte, estilos.nombre, { color: colores.text }]}>
@@ -156,9 +287,27 @@ export default function AdminStaffScreen() {
                     {integrante.id_usuario === usuario?.id_usuario ? ' (tú)' : ''}
                   </Text>
 
-                  <View style={[estilos.chipRol, { backgroundColor: info.color }]}>
-                    <Text style={estilos.textoChipRol}>{info.etiqueta.toUpperCase()}</Text>
+                  <View style={[estilos.chipRol, { backgroundColor: colores[info.color] }]}>
+                    <Text style={[estilos.textoChipRol, { color: colores[info.textoChip] }]}>
+                      {info.etiqueta.toUpperCase()}
+                    </Text>
                   </View>
+
+                  {integrante.id_usuario !== usuario?.id_usuario && (
+                    <TouchableOpacity
+                      accessibilityLabel={`Eliminar a ${integrante.nombre}`}
+                      disabled={Boolean(eliminandoId)}
+                      onPress={() => manejarEliminar(integrante)}
+                      style={[estilos.botonEliminar, { backgroundColor: colores.danger_soft }]}
+                      activeOpacity={0.7}
+                    >
+                      {eliminandoId === integrante.id_usuario ? (
+                        <ActivityIndicator size="small" color={colores.danger} />
+                      ) : (
+                        <Ionicons name="trash-outline" size={20} color={colores.danger} />
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
               );
             })}
@@ -230,6 +379,26 @@ const estilos = StyleSheet.create({
     fontSize: 20,
     marginTop: espaciado.sm,
   },
+  filaReintento: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espaciado.sm,
+    paddingVertical: espaciado.xs,
+  },
+  bloqueFalloRed: {
+    alignItems: 'center',
+    gap: espaciado.sm,
+    paddingVertical: espaciado.md,
+  },
+  botonReintentar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espaciado.xs,
+    paddingHorizontal: espaciado.md,
+    paddingVertical: espaciado.sm,
+    borderRadius: radios.md,
+    borderWidth: 1,
+  },
   lista: {
     gap: espaciado.sm,
   },
@@ -257,9 +426,15 @@ const estilos = StyleSheet.create({
     borderRadius: 8,
   },
   textoChipRol: {
-    color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '700',
+  },
+  botonEliminar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   vacio: {
     textAlign: 'center',

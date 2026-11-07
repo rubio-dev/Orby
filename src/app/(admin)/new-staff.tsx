@@ -1,7 +1,16 @@
 import { Ionicons } from '@expo/vector-icons'; // Íconos
 import { useRouter } from 'expo-router'; // Navegación de Expo Router
 import React, { useState } from 'react'; // Estado de React
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'; // Componentes base
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'; // Componentes base
 import { SafeAreaView } from 'react-native-safe-area-context'; // Respeta el notch y la barra del sistema
 
 import { CustomButton } from '@/components/CustomButton'; // Botón del diseño Orby
@@ -9,36 +18,36 @@ import { CustomInput } from '@/components/CustomInput'; // Campo con etiqueta y 
 import { ScreenHeader } from '@/components/ScreenHeader'; // Encabezado con flecha de regreso
 import { useAuth } from '@/context/auth-context'; // Registro de personal
 import { LARGO_MINIMO_CONTRASENA, validar_contrasena, validar_correo } from '@/lib/auth'; // Validaciones
-import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme'; // Tema activo y tokens
+import { type ColoresTema, espaciado, fuentes, radios, tipografia, useTema } from '@/theme'; // Tema activo y tokens
 
 // TIPOS
 type RolEmpleado = 'mesero' | 'cocina';
 type ErroresFormulario = Partial<Record<'nombre' | 'correo' | 'contrasena', string>>;
 
-// OPCIONES DE ROL (tarjetas seleccionables)
+// OPCIONES DE ROL (tarjetas seleccionables con tokens del tema)
 const OPCIONES_ROL: {
   rol: RolEmpleado;
   titulo: string;
   descripcion: string;
   icono: keyof typeof Ionicons.glyphMap;
-  color: string;
-  fondo: string;
+  color: keyof ColoresTema;
+  fondo: keyof ColoresTema;
 }[] = [
   {
     rol: 'mesero',
     titulo: 'Mesero',
     descripcion: 'Toma pedidos y atiende mesas',
     icono: 'receipt-outline',
-    color: '#388D7A',
-    fondo: '#E8F5F1',
+    color: 'primary',
+    fondo: 'primary_soft',
   },
   {
     rol: 'cocina',
     titulo: 'Cocina / Barra',
     descripcion: 'Prepara las comandas',
     icono: 'restaurant-outline',
-    color: '#C27803',
-    fondo: '#FDF7EB',
+    color: 'warning',
+    fondo: 'warning_soft',
   },
 ];
 
@@ -61,6 +70,7 @@ export default function NuevoEmpleadoScreen() {
   const [errores, setErrores] = useState<ErroresFormulario>({});
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
+  const [mensajeReintento, setMensajeReintento] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
   // Revisa cada campo y devuelve los errores encontrados
@@ -87,6 +97,7 @@ export default function NuevoEmpleadoScreen() {
   const handleRegistrar = async () => {
     setErrorGeneral(null);
     setMensajeExito(null);
+    setMensajeReintento(null);
 
     const encontrados = validar();
     setErrores(encontrados);
@@ -96,23 +107,30 @@ export default function NuevoEmpleadoScreen() {
     }
 
     setCargando(true);
-    const resultado = await registrarPersonal({ nombre, correo, contrasena, rol });
-    setCargando(false);
+    try {
+      const resultado = await registrarPersonal(
+        { nombre, correo, contrasena, rol },
+        (n, max) => setMensajeReintento(`Reintentando conexión con el servidor (intento ${n} de ${max})...`)
+      );
 
-    if (!resultado.exito) {
-      setErrorGeneral(resultado.error ?? 'No se pudo registrar al empleado.');
-      return;
+      if (!resultado.exito) {
+        setErrorGeneral(resultado.error ?? 'No se pudo registrar al empleado.');
+        return;
+      }
+
+      // Éxito: se avisa y se limpia el formulario para registrar a otra persona
+      const etiqueta = OPCIONES_ROL.find((opcion) => opcion.rol === rol)?.titulo ?? rol;
+      setMensajeExito(
+        `${nombre.trim()} quedó registrado como ${etiqueta}. Ya puede iniciar sesión con ${correo.trim().toLowerCase()}.`
+      );
+      setNombre('');
+      setCorreo('');
+      setContrasena('');
+      setConfirmacion('');
+    } finally {
+      setCargando(false);
+      setMensajeReintento(null);
     }
-
-    // Éxito: se avisa y se limpia el formulario para registrar a otra persona
-    const etiqueta = OPCIONES_ROL.find((opcion) => opcion.rol === rol)?.titulo ?? rol;
-    setMensajeExito(
-      `${nombre.trim()} quedó registrado como ${etiqueta}. Ya puede iniciar sesión con ${correo.trim().toLowerCase()}.`
-    );
-    setNombre('');
-    setCorreo('');
-    setContrasena('');
-    setConfirmacion('');
   };
 
   return (
@@ -141,18 +159,25 @@ export default function NuevoEmpleadoScreen() {
                 <TouchableOpacity
                   key={opcion.rol}
                   activeOpacity={0.8}
+                  disabled={cargando}
                   onPress={() => setRol(opcion.rol)}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: elegido }}
                   style={[
                     estilos.cardRol,
                     elegido
-                      ? { borderColor: opcion.color, backgroundColor: opcion.fondo }
+                      ? { borderColor: colores[opcion.color], backgroundColor: colores[opcion.fondo] }
                       : { borderColor: colores.border_strong, backgroundColor: colores.surface },
                   ]}
                 >
-                  <Ionicons name={opcion.icono} size={26} color={elegido ? opcion.color : colores.text} />
-                  <Text style={[estilos.textoRol, { color: elegido ? opcion.color : colores.text }]}>{opcion.titulo}</Text>
+                  <Ionicons
+                    name={opcion.icono}
+                    size={26}
+                    color={elegido ? colores[opcion.color] : colores.text}
+                  />
+                  <Text style={[estilos.textoRol, { color: elegido ? colores[opcion.color] : colores.text }]}>
+                    {opcion.titulo}
+                  </Text>
                   <Text style={[tipografia.micro, { color: colores.text_muted, textAlign: 'center' }]}>
                     {opcion.descripcion}
                   </Text>
@@ -170,6 +195,7 @@ export default function NuevoEmpleadoScreen() {
             onChangeText={setNombre}
             error={errores.nombre}
             variante="relleno"
+            editable={!cargando}
           />
 
           <CustomInput
@@ -183,6 +209,7 @@ export default function NuevoEmpleadoScreen() {
             onChangeText={setCorreo}
             error={errores.correo}
             variante="relleno"
+            editable={!cargando}
           />
 
           <CustomInput
@@ -196,6 +223,7 @@ export default function NuevoEmpleadoScreen() {
             onChangeText={setContrasena}
             error={errores.contrasena}
             variante="relleno"
+            editable={!cargando}
           />
 
           <CustomInput
@@ -208,6 +236,7 @@ export default function NuevoEmpleadoScreen() {
             value={confirmacion}
             onChangeText={setConfirmacion}
             variante="relleno"
+            editable={!cargando}
           />
 
           {/* Error (correo repetido, sin conexión, etc.) */}
@@ -223,6 +252,14 @@ export default function NuevoEmpleadoScreen() {
             <View style={[estilos.caja, { backgroundColor: colores.primary_soft }]}>
               <Ionicons name="checkmark-circle" size={18} color={colores.primary_strong} style={{ marginRight: 6 }} />
               <Text style={[estilos.textoCaja, { color: colores.primary_strong }]}>{mensajeExito}</Text>
+            </View>
+          )}
+
+          {/* Mensaje de reintento */}
+          {mensajeReintento && (
+            <View style={[estilos.caja, { backgroundColor: colores.primary_soft }]}>
+              <ActivityIndicator size="small" color={colores.primary} style={{ marginRight: 8 }} />
+              <Text style={[estilos.textoCaja, { color: colores.primary_strong }]}>{mensajeReintento}</Text>
             </View>
           )}
 
