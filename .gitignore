@@ -41,6 +41,10 @@ credentials.json
 *.keystore
 *service-account*.json
 
+# Semillas y scripts de prueba temporales para desarrollo local
+supabase/seed_*.sql
+*seed_bardo*
+
 # typescript
 *.tsbuildinfo
 

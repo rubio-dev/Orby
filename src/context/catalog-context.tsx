@@ -203,6 +203,8 @@ const claveProductos = (idCafeteria: string) =>
 const claveCategorias = (idCafeteria: string) =>
   `@orby_categorias_${idCafeteria}`;
 const claveCola = (idCafeteria: string) => `@orby_cola_catalogo_${idCafeteria}`;
+const claveEstadisticas = (idCafeteria: string) =>
+  `@orby_estadisticas_${idCafeteria}`;
 
 const CATEGORIAS_INICIALES: Categoria[] = [
   { id_categoria: "cat-1", nombre_categoria: "Bebidas" },
@@ -370,6 +372,7 @@ type CatalogContextType = {
     alReintentar?: CallbackReintento,
   ) => Promise<ResultadoOperacionCatalogo>;
   recargarProductos: (alReintentar?: CallbackReintento) => Promise<void>;
+  recargarEstadisticas: (alReintentar?: CallbackReintento) => Promise<void>;
   sincronizarColaPendiente: (
     alReintentar?: CallbackReintento,
   ) => Promise<{ sincronizados: number; pendientes: number }>;
@@ -384,7 +387,8 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   const [productos, setProductos] = useState<Producto[]>(PRODUCTOS_INICIALES);
   const [categorias, setCategorias] =
     useState<Categoria[]>(CATEGORIAS_INICIALES);
-  const [estadisticas] = useState<EstadisticasVenta>(ESTADISTICAS_INICIALES);
+  const [estadisticas, setEstadisticas] =
+    useState<EstadisticasVenta>(ESTADISTICAS_INICIALES);
   const [cargandoCatalogo, setCargandoCatalogo] = useState<boolean>(true);
   const [colaPendiente, setColaPendiente] = useState<OperacionColaCatalogo[]>(
     [],
@@ -686,6 +690,165 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     [idCafeteria, colaPendiente.length],
   );
 
+  const recargarEstadisticas = useCallback(
+    async (alReintentar?: CallbackReintento) => {
+      if (!idCafeteria || !esUuidValido(idCafeteria) || !supabase_configurado) {
+        return;
+      }
+
+      try {
+        const supabase = obtener_supabase();
+
+        // Fechas de referencia en UTC (coinciden con CURRENT_DATE de Postgres)
+        const ahora = new Date();
+        const inicioHoyUtc = new Date(
+          Date.UTC(
+            ahora.getUTCFullYear(),
+            ahora.getUTCMonth(),
+            ahora.getUTCDate(),
+            0,
+            0,
+            0,
+            0,
+          ),
+        );
+        const inicioAyerUtc = new Date(
+          Date.UTC(
+            ahora.getUTCFullYear(),
+            ahora.getUTCMonth(),
+            ahora.getUTCDate() - 1,
+            0,
+            0,
+            0,
+            0,
+          ),
+        );
+
+        const isoInicioHoy = inicioHoyUtc.toISOString();
+        const isoInicioAyer = inicioAyerUtc.toISOString();
+
+        // 1. Consultar comandas de hoy (cerradas id_estado = 2)
+        const { resultado: resHoy } = await con_reintentos(
+          async () =>
+            await supabase
+              .from("comanda")
+              .select("id_comanda, total, fecha_creacion")
+              .eq("id_cafeteria", idCafeteria)
+              .eq("id_estado", 2)
+              .gte("fecha_creacion", isoInicioHoy),
+          alReintentar,
+        );
+
+        // 2. Consultar comandas de ayer (cerradas id_estado = 2)
+        const { resultado: resAyer } = await con_reintentos(
+          async () =>
+            await supabase
+              .from("comanda")
+              .select("id_comanda, total, fecha_creacion")
+              .eq("id_cafeteria", idCafeteria)
+              .eq("id_estado", 2)
+              .gte("fecha_creacion", isoInicioAyer)
+              .lt("fecha_creacion", isoInicioHoy),
+          alReintentar,
+        );
+
+        const comandasHoy =
+          (resHoy?.data as { id_comanda: string; total: number | null }[]) ||
+          [];
+        const comandasAyer =
+          (resAyer?.data as { id_comanda: string; total: number | null }[]) ||
+          [];
+
+        const ventasHoy = comandasHoy.reduce(
+          (acc, c) => acc + (Number(c.total) || 0),
+          0,
+        );
+        const pedidosHoy = comandasHoy.length;
+
+        const ventasAyer = comandasAyer.reduce(
+          (acc, c) => acc + (Number(c.total) || 0),
+          0,
+        );
+        const pedidosAyer = comandasAyer.length;
+
+        const porcentajeCambioVentas =
+          ventasAyer > 0
+            ? Math.round(((ventasHoy - ventasAyer) / ventasAyer) * 100)
+            : ventasHoy > 0
+              ? 100
+              : 0;
+
+        const porcentajeCambioPedidos =
+          pedidosAyer > 0
+            ? Math.round(((pedidosHoy - pedidosAyer) / pedidosAyer) * 100)
+            : pedidosHoy > 0
+              ? 100
+              : 0;
+
+        // 3. Consultar detalles de comandas de hoy para top 4 productos más vendidos
+        const idsHoy = comandasHoy.map((c) => c.id_comanda);
+        let topProductos: { posicion: number; nombre: string; cantidad: number }[] = [];
+
+        if (idsHoy.length > 0) {
+          const { resultado: resDetalles } = await con_reintentos(
+            async () =>
+              await supabase
+                .from("detalle_comanda")
+                .select("id_producto, cantidad, producto(nombre_producto)")
+                .in("id_comanda", idsHoy),
+            alReintentar,
+          );
+
+          if (resDetalles?.data && Array.isArray(resDetalles.data)) {
+            const mapaConteo = new Map<string, { nombre: string; cantidad: number }>();
+
+            for (const item of (resDetalles.data as unknown as {
+              id_producto: string;
+              cantidad: number;
+              producto?: { nombre_producto: string } | { nombre_producto: string }[] | null;
+            }[])) {
+              const nombre = Array.isArray(item.producto)
+                ? item.producto[0]?.nombre_producto || "Producto"
+                : item.producto?.nombre_producto || "Producto";
+              const actual = mapaConteo.get(item.id_producto) || {
+                nombre,
+                cantidad: 0,
+              };
+              actual.cantidad += Number(item.cantidad) || 0;
+              mapaConteo.set(item.id_producto, actual);
+            }
+
+            topProductos = Array.from(mapaConteo.values())
+              .sort((a, b) => b.cantidad - a.cantidad)
+              .slice(0, 4)
+              .map((p, idx) => ({
+                posicion: idx + 1,
+                nombre: p.nombre,
+                cantidad: p.cantidad,
+              }));
+          }
+        }
+
+        const nuevasEstadisticas: EstadisticasVenta = {
+          ventas_totales_diarias: Math.round(ventasHoy),
+          porcentaje_cambio_ventas: porcentajeCambioVentas,
+          pedidos_diarios: pedidosHoy,
+          porcentaje_cambio_pedidos: porcentajeCambioPedidos,
+          productos_mas_vendidos: topProductos,
+        };
+
+        setEstadisticas(nuevasEstadisticas);
+        await AsyncStorage.setItem(
+          claveEstadisticas(idCafeteria),
+          JSON.stringify(nuevasEstadisticas),
+        );
+      } catch (err) {
+        console.warn("Error al recargar estadísticas desde Supabase:", err);
+      }
+    },
+    [idCafeteria],
+  );
+
   const recargarDesdeSupabase = useCallback(
     async (alReintentar?: CallbackReintento) => {
       if (!idCafeteria || !esUuidValido(idCafeteria) || !supabase_configurado) {
@@ -810,13 +973,15 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
             );
           }
         }
+
+        await recargarEstadisticas(alReintentar);
       } catch (e) {
         console.warn("Error al recargar catálogo desde Supabase:", e);
       } finally {
         setCargandoCatalogo(false);
       }
     },
-    [idCafeteria, sincronizarColaPendiente],
+    [idCafeteria, sincronizarColaPendiente, recargarEstadisticas],
   );
 
   useEffect(() => {
@@ -825,19 +990,31 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       if (!idCafeteria || !esUuidValido(idCafeteria)) {
         setProductos(PRODUCTOS_INICIALES);
         setCategorias(CATEGORIAS_INICIALES);
+        setEstadisticas(ESTADISTICAS_INICIALES);
         setColaPendiente([]);
         setCargandoCatalogo(false);
         return;
       }
 
       try {
-        const [prodsGuardados, catsGuardadas, colaGuardada] = await Promise.all(
-          [
+        const [prodsGuardados, catsGuardadas, colaGuardada, statsGuardadas] =
+          await Promise.all([
             AsyncStorage.getItem(claveProductos(idCafeteria)),
             AsyncStorage.getItem(claveCategorias(idCafeteria)),
             AsyncStorage.getItem(claveCola(idCafeteria)),
-          ],
-        );
+            AsyncStorage.getItem(claveEstadisticas(idCafeteria)),
+          ]);
+
+        if (statsGuardadas) {
+          try {
+            const parsed = JSON.parse(statsGuardadas);
+            if (parsed && typeof parsed.ventas_totales_diarias === "number") {
+              setEstadisticas(parsed);
+            }
+          } catch (e) {
+            console.warn("Error al parsear estadísticas en caché:", e);
+          }
+        }
 
         if (catsGuardadas) {
           const parsed = JSON.parse(catsGuardadas);
@@ -1442,6 +1619,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         editarCategoria,
         eliminarCategoria,
         recargarProductos: recargarDesdeSupabase,
+        recargarEstadisticas,
         sincronizarColaPendiente,
       }}
     >

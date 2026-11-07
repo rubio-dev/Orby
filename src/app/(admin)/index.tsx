@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,9 +20,19 @@ import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (
 export default function AdminHomeScreen() {
   const { colores } = useTema();
   const { usuario } = useAuth();
-  const { estadisticas } = useCatalog();
+  const { estadisticas, recargarEstadisticas, cargandoCatalogo } = useCatalog();
+  const [refrescandoManual, setRefrescandoManual] = useState(false);
 
   const bordeTabla = { borderColor: colores.text };
+
+  const handleRefresh = useCallback(async () => {
+    setRefrescandoManual(true);
+    try {
+      await recargarEstadisticas();
+    } finally {
+      setRefrescandoManual(false);
+    }
+  }, [recargarEstadisticas]);
 
   const handleDescargarReporte = () => {
     mostrarAviso(
@@ -32,12 +43,23 @@ export default function AdminHomeScreen() {
   };
 
   const nombreAdmin = usuario?.nombre ?? 'Gael';
+  const productos = estadisticas?.productos_mas_vendidos ?? [];
+  const filasVaciasCount = Math.max(0, 4 - productos.length);
+  const filasVacias = Array.from({ length: filasVaciasCount });
 
   return (
     <SafeAreaView style={[estilos.pantalla, { backgroundColor: colores.background }]} edges={['top']}>
       <ScrollView
         contentContainerStyle={estilos.scroll}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refrescandoManual || cargandoCatalogo}
+            onRefresh={handleRefresh}
+            tintColor={colores.primary}
+            colors={[colores.primary]}
+          />
+        }
       >
         {/* Encabezado con avatar, saludo y rol */}
         <UserHeader nombre={nombreAdmin} rol="Administrador" tamanoAvatar={96} />
@@ -46,14 +68,14 @@ export default function AdminHomeScreen() {
         <View style={estilos.filaMetricas}>
           <MetricCard
             titulo={'Ventas totales\ndiarias'}
-            valor={`$${estadisticas.ventas_totales_diarias.toLocaleString()}`}
-            cambioPorcentual={estadisticas.porcentaje_cambio_ventas}
+            valor={`$${(estadisticas?.ventas_totales_diarias ?? 0).toLocaleString()}`}
+            cambioPorcentual={estadisticas?.porcentaje_cambio_ventas ?? 0}
           />
 
           <MetricCard
             titulo={'Pedidos\ndiarios'}
-            valor={estadisticas.pedidos_diarios}
-            cambioPorcentual={estadisticas.porcentaje_cambio_pedidos}
+            valor={estadisticas?.pedidos_diarios ?? 0}
+            cambioPorcentual={estadisticas?.porcentaje_cambio_pedidos ?? 0}
           />
         </View>
 
@@ -66,31 +88,42 @@ export default function AdminHomeScreen() {
             </View>
 
             {/* Filas con datos */}
-            {estadisticas.productos_mas_vendidos.map((prod) => (
-              <View key={prod.posicion} style={[estilos.filaTabla, bordeTabla]}>
-                <View style={[estilos.celdaPosicion, bordeTabla]}>
-                  <Text style={[estilos.textoCelda, { color: colores.text }]}>{prod.posicion}.</Text>
+            {productos.map((prod, index) => {
+              const esUltima = index === productos.length - 1 && filasVaciasCount === 0;
+              return (
+                <View
+                  key={prod.posicion ?? index}
+                  style={[estilos.filaTabla, bordeTabla, esUltima && { borderBottomWidth: 0 }]}
+                >
+                  <View style={[estilos.celdaPosicion, bordeTabla]}>
+                    <Text style={[estilos.textoCelda, { color: colores.text }]}>{prod.posicion}.</Text>
+                  </View>
+                  <View style={[estilos.celdaNombre, bordeTabla]}>
+                    <Text style={[estilos.textoCelda, { color: colores.text }]} numberOfLines={1}>
+                      {prod.nombre}
+                    </Text>
+                  </View>
+                  <View style={estilos.celdaCantidad}>
+                    <Text style={[estilos.textoCelda, { color: colores.text }]}>{prod.cantidad}</Text>
+                  </View>
                 </View>
-                <View style={[estilos.celdaNombre, bordeTabla]}>
-                  <Text style={[estilos.textoCelda, { color: colores.text }]}>{prod.nombre}</Text>
-                </View>
-                <View style={estilos.celdaCantidad}>
-                  <Text style={[estilos.textoCelda, { color: colores.text }]}>{prod.cantidad}</Text>
-                </View>
-              </View>
-            ))}
+              );
+            })}
 
-            {/* Filas vacías estéticas como en el mockup */}
-            <View style={[estilos.filaTabla, bordeTabla]}>
-              <View style={[estilos.celdaPosicion, bordeTabla]} />
-              <View style={[estilos.celdaNombre, bordeTabla]} />
-              <View style={estilos.celdaCantidad} />
-            </View>
-            <View style={[estilos.filaTabla, bordeTabla, { borderBottomWidth: 0 }]}>
-              <View style={[estilos.celdaPosicion, bordeTabla]} />
-              <View style={[estilos.celdaNombre, bordeTabla]} />
-              <View style={estilos.celdaCantidad} />
-            </View>
+            {/* Filas vacías estéticas sin romper la interfaz */}
+            {filasVacias.map((_, index) => {
+              const esUltima = index === filasVaciasCount - 1;
+              return (
+                <View
+                  key={`vacia-${index}`}
+                  style={[estilos.filaTabla, bordeTabla, esUltima && { borderBottomWidth: 0 }]}
+                >
+                  <View style={[estilos.celdaPosicion, bordeTabla]} />
+                  <View style={[estilos.celdaNombre, bordeTabla]} />
+                  <View style={estilos.celdaCantidad} />
+                </View>
+              );
+            })}
           </View>
         </View>
 
@@ -102,7 +135,6 @@ export default function AdminHomeScreen() {
             onPress={handleDescargarReporte}
             estilo={estilos.botonReporte}
           />
-
         </View>
       </ScrollView>
 
