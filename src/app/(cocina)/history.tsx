@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
+  ActivityIndicator,
   FlatList,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,18 +14,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CocinaBottomNav } from '@/components/CocinaBottomNav';
 import { ScreenHeader } from '@/components/ScreenHeader';
-import { useOrders } from '@/context/orders-context';
+import { useKitchen } from '@/context/kitchen-context';
+import { AvisoSinConexion } from '@/kitchen/AvisoSinConexion';
+import { ESTADO_DETALLE, type ComandaCocina } from '@/lib/kitchen-network';
 import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme';
-import type { Comanda } from '@/types';
 
 export default function CocinaHistoryScreen() {
   const router = useRouter();
   const { colores } = useTema();
-  const { comandas } = useOrders();
+  // Cuentas cerradas de hoy, de la más reciente a la más vieja (el orden lo pide el contexto)
+  const { comandasCerradasHoy: completadas, cargando, recargando, recargar } = useKitchen();
 
-  const completadas = comandas.filter((c) => c.id_estado === 3 || c.id_estado === 4);
-
-  const renderComanda = ({ item }: { item: Comanda }) => (
+  const renderComanda = ({ item }: { item: ComandaCocina }) => (
     <View style={[estilos.tarjeta, { backgroundColor: colores.surface, borderColor: colores.text }]}>
       <View style={estilos.cabecera}>
         <Text style={[estilos.mesa, { color: colores.text }]}>
@@ -35,7 +37,8 @@ export default function CocinaHistoryScreen() {
       </View>
 
       <View style={estilos.detalles}>
-        {item.detalles.map((d) => (
+        {/* Lo cancelado no se sirvió: no forma parte de lo que hizo la cocina */}
+        {item.detalles.filter((d) => d.id_estado !== ESTADO_DETALLE.cancelado).map((d) => (
           <Text key={d.id_detalle} style={[estilos.itemTexto, { color: colores.text_secondary }]}>
             • {d.cantidad} {d.nombre_producto}
           </Text>
@@ -64,6 +67,9 @@ export default function CocinaHistoryScreen() {
         onBack={() => router.push('/(cocina)' as any)}
       />
 
+      {/* Solo aparece sin conexión o con cambios por enviar */}
+      <AvisoSinConexion />
+
       <View style={estilos.contenido}>
         <FlatList
           data={completadas}
@@ -71,13 +77,27 @@ export default function CocinaHistoryScreen() {
           renderItem={renderComanda}
           contentContainerStyle={estilos.lista}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={recargando}
+              onRefresh={() => recargar({ manual: true })}
+              tintColor={colores.primary}
+              colors={[colores.primary]}
+            />
+          }
           ListEmptyComponent={
-            <View style={estilos.vacio}>
-              <Ionicons name="time-outline" size={48} color={colores.text_muted} />
-              <Text style={[tipografia.cuerpo, { color: colores.text_muted, marginTop: espaciado.md }]}>
-                Aún no hay comandas finalizadas en el turno
-              </Text>
-            </View>
+            cargando ? (
+              <View style={estilos.vacio}>
+                <ActivityIndicator size="large" color={colores.primary} />
+              </View>
+            ) : (
+              <View style={estilos.vacio}>
+                <Ionicons name="time-outline" size={48} color={colores.text_muted} />
+                <Text style={[tipografia.cuerpo, { color: colores.text_muted, marginTop: espaciado.md }]}>
+                  Aún no hay comandas cerradas hoy
+                </Text>
+              </View>
+            )
           }
         />
       </View>
