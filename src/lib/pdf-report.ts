@@ -1,4 +1,4 @@
-import { es_error_red_o_timeout, MENSAJE_SIN_CONEXION } from '@/lib/auth';
+import { es_error_red_o_timeout } from '@/lib/auth';
 import { obtener_supabase } from '@/lib/supabase';
 
 export type ProductoVentaReporte = {
