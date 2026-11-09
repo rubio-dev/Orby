@@ -51,6 +51,8 @@ export default function CocinaOrderDetailScreen() {
           titulo={cargando ? 'Cargando…' : 'Comanda no encontrada'}
           onBack={() => router.back()}
         />
+        {/* Sin sesión real la comanda se oculta: la franja roja explica por qué */}
+        <AvisoSinConexion />
         <View style={estilos.vacio}>
           {cargando ? (
             <ActivityIndicator size="large" color={colores.primary} />

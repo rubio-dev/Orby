@@ -60,6 +60,9 @@ const claveCopia = (idCafeteria: string) => `@orby_cocina_comandas_${idCafeteria
 // La función de reintentos de Gael (7000 ms, 3 intentos), con la forma que espera la cola
 const conRed: EjecutorConRed = (operacion) => con_reintentos(operacion);
 
+// Lista vacía fija (siempre el mismo arreglo) para que las pantallas no se redibujen de más
+const SIN_COMANDAS: ComandaCocina[] = [];
+
 function esUuidValido(id?: string | null): boolean {
   if (!id) return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -510,10 +513,18 @@ export function KitchenProvider({ children }: { children: ReactNode }) {
   // ACCIONES DE LAS PANTALLAS
   // Lo que se ve en pantalla ya incluye la cola, así que el "estado anterior" que guarda
   // cada cambio es el que la cocina tenía delante al tocar el botón.
+  // Solo cuenta si hay .env: sin Supabase configurado, cerrar sesión no arregla nada
+  const sinSesionReal = supabase_configurado && estadoSesion === 'falsa';
+
+  // Sin sesión real no se muestra la copia guardada en el teléfono: quien entró con otra
+  // contraseña (o como demo) no debe ver pedidos ni números de la cafetería. La copia y la
+  // cola NO se borran: siguen guardadas y vuelven a aparecer al entrar con la cuenta correcta.
+  // Mientras se verifica la sesión sí se muestra, para no dejar la pantalla en blanco sin motivo.
   const comandasAbiertas = useMemo(
-    () => aplicarColaSobreComandas(abiertasServidor, cola),
-    [abiertasServidor, cola]
+    () => (sinSesionReal ? SIN_COMANDAS : aplicarColaSobreComandas(abiertasServidor, cola)),
+    [sinSesionReal, abiertasServidor, cola]
   );
+  const comandasCerradasHoy = sinSesionReal ? SIN_COMANDAS : cerradasHoy;
 
   const encolar = useCallback(
     async (ops: OperacionCocina[]) => {
@@ -567,12 +578,11 @@ export function KitchenProvider({ children }: { children: ReactNode }) {
     <KitchenContext.Provider
       value={{
         comandasAbiertas,
-        comandasCerradasHoy: cerradasHoy,
+        comandasCerradasHoy,
         cargando,
         recargando,
         sinConexion,
-        // Solo cuenta si hay .env: sin Supabase configurado, cerrar sesión no arregla nada
-        sinSesionReal: supabase_configurado && estadoSesion === 'falsa',
+        sinSesionReal,
         cambiosPendientes: contarCambiosPendientes(cola),
         recargar,
         cambiarEstadoProducto,
