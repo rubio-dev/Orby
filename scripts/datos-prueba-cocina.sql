@@ -9,9 +9,15 @@
 --   Mesa 6: cuenta abierta con todo listo -> pestaña "Listos".
 --   Mesa 9: cuenta cerrada hoy -> Historial.
 --
--- Cómo correrlo: ver las instrucciones del paso 9 (panel local http://127.0.0.1:54323,
--- SQL Editor) o, desde la terminal de VS Code en PowerShell:
---   Get-Content scripts/datos-prueba-cocina.sql | docker exec -i supabase_db_orby psql -U postgres
+-- Cómo correrlo (con Supabase local encendido: pnpm db:start), desde la terminal de VS Code:
+--   docker cp scripts/datos-prueba-cocina.sql supabase_db_orby:/tmp/datos-prueba-cocina.sql
+--   docker exec supabase_db_orby psql -U postgres -f /tmp/datos-prueba-cocina.sql
+-- Debe terminar con: NOTICE: Listo: mesa 4 (en preparación), mesa 6 (listos) y mesa 9 (historial).
+--
+-- No usar "Get-Content ... | docker exec -i ...": Windows PowerShell 5.1 convierte a ASCII el
+-- texto que pasa con "|" a otro programa, y los acentos se guardan como "?" ("preparaci?n").
+-- docker cp copia el archivo tal cual. También se puede pegar en el SQL Editor del panel
+-- local (http://127.0.0.1:54323).
 --
 -- Se puede correr las veces que quieras: borra solo SUS cuentas de prueba (IDs fijos que
 -- empiezan con d0c1...) y las vuelve a crear con la hora de ahora, así el tiempo de espera
