@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { RealtimeChannel } from '@supabase/supabase-js';
+import type { RealtimeChannel, Session } from '@supabase/supabase-js';
 import React, {
   createContext,
   useCallback,
@@ -13,7 +13,12 @@ import React, {
 import { AppState, type AppStateStatus } from 'react-native';
 
 import { useAuth } from '@/context/auth-context';
-import { con_reintentos, MENSAJE_SIN_CONEXION, traducir_error } from '@/lib/auth';
+import {
+  con_reintentos,
+  es_error_red_o_timeout,
+  MENSAJE_SIN_CONEXION,
+  traducir_error,
+} from '@/lib/auth';
 import { mostrarAviso } from '@/lib/confirm';
 import { supabase_configurado } from '@/lib/env';
 import {
@@ -113,6 +118,10 @@ type KitchenContextType = {
   cargando: boolean; // Primera carga, sin nada que mostrar todavía
   recargando: boolean; // Deslizar hacia abajo
   sinConexion: boolean;
+  // Entró como usuario demo (sin sesión de Supabase) o la sesión es de otra persona.
+  // Sin sesión real, RLS devuelve 0 filas SIN error: la cocina vería todo en 0 creyendo
+  // que no hay pedidos. Por eso se avisa en lugar de consultar.
+  sinSesionReal: boolean;
   cambiosPendientes: number;
   recargar: (opciones?: { manual?: boolean }) => Promise<void>;
   cambiarEstadoProducto: (id_comanda: string, id_detalle: string, estado: number) => Promise<void>;
@@ -125,7 +134,30 @@ const KitchenContext = createContext<KitchenContextType | undefined>(undefined);
 export function KitchenProvider({ children }: { children: ReactNode }) {
   const { usuario } = useAuth();
   const idCafeteria = esUuidValido(usuario?.id_cafeteria) ? usuario!.id_cafeteria : null;
-  const conectado = supabase_configurado && idCafeteria !== null;
+  const idUsuario = usuario?.id_usuario ?? null;
+
+  // SESIÓN REAL
+  // auth-context (compartido, no se toca) entra con un usuario demo si el login de Supabase
+  // falla, aunque sea por una contraseña autollenada mal. Aquí se revisa que exista una
+  // sesión de Supabase y que sea de este mismo usuario antes de consultar o enviar nada.
+  // Se guarda de qué usuario es el resultado: si cambia el usuario, el resultado viejo no
+  // sirve y se considera "verificando" hasta que llegue el nuevo (sin setState en el efecto)
+  const [revision, setRevision] = useState<{ idUsuario: string; real: boolean } | null>(null);
+  const estadoSesion: 'verificando' | 'real' | 'falsa' =
+    !supabase_configurado || !idUsuario
+      ? 'falsa'
+      : revision?.idUsuario !== idUsuario
+        ? 'verificando'
+        : revision.real
+          ? 'real'
+          : 'falsa';
+  const sesionReal = estadoSesion === 'real';
+  // "conectado" = se puede hablar con Supabase en nombre de esta cocina
+  const conectado = supabase_configurado && idCafeteria !== null && sesionReal;
+
+  // Se pone en true cuando ya se leyó la copia y la cola del teléfono; hasta entonces no se
+  // consulta el servidor, para que la copia vieja no llegue tarde y pise datos nuevos
+  const [almacenListo, setAlmacenListo] = useState(false);
 
   const [abiertasServidor, setAbiertasServidor] = useState<ComandaCocina[]>([]);
   const [cerradasHoy, setCerradasHoy] = useState<ComandaCocina[]>([]);
@@ -236,6 +268,9 @@ export function KitchenProvider({ children }: { children: ReactNode }) {
 
   // ENVÍO DE LA COLA
   const sincronizar = useCallback(async () => {
+    // Sin sesión real (conectado = false) la cola NO se envía: por RLS la cuenta "no existiría"
+    // y los cambios se descartarían como "la cuenta ya no existe". Se quedan guardados
+    // hasta que la cocina vuelva a entrar bien.
     if (!conectado || sincronizandoRef.current || colaRef.current.length === 0) return;
     sincronizandoRef.current = true;
 
@@ -269,13 +304,19 @@ export function KitchenProvider({ children }: { children: ReactNode }) {
   }, [conectado, guardarCola, cargarComandas]);
 
   // Primero se envía lo pendiente y luego se carga, para ver el resultado ya aplicado
+  const sincronizarYCargar = useCallback(async () => {
+    if (!conectado) return 'error' as const;
+    await sincronizar();
+    return cargarComandas();
+  }, [conectado, sincronizar, cargarComandas]);
+
+  // Lo mismo, con el indicador de "deslizar hacia abajo" y el aviso si no hay conexión
   const recargar = useCallback(
     async (opciones?: { manual?: boolean }) => {
       if (!conectado) return;
       if (opciones?.manual) setRecargando(true);
       try {
-        await sincronizar();
-        const estado = await cargarComandas();
+        const estado = await sincronizarYCargar();
         if (estado === 'red' && opciones?.manual) {
           mostrarAviso('Sin conexión', MENSAJE_SIN_CONEXION);
         }
@@ -283,14 +324,61 @@ export function KitchenProvider({ children }: { children: ReactNode }) {
         if (opciones?.manual) setRecargando(false);
       }
     },
-    [conectado, sincronizar, cargarComandas]
+    [conectado, sincronizarYCargar]
   );
 
-  // INICIO: copia guardada y cola del teléfono, luego datos frescos
+  // REVISAR LA SESIÓN: al entrar y cada vez que Supabase avise un cambio
+  // (inicio de sesión, cierre, renovación del token o sesión vencida que no se pudo renovar)
+  useEffect(() => {
+    if (!supabase_configurado || !idUsuario) return; // Ya se deduce "falsa" arriba
+
+    let activo = true;
+    const supabase = obtener_supabase();
+
+    const revisar = (sesion: Session | null) => {
+      if (!activo) return;
+      setRevision({ idUsuario, real: !!sesion && sesion.user.id === idUsuario });
+    };
+
+    // Sin internet, renovar un token vencido falla por red: eso no significa que la sesión
+    // sea falsa. Si aún no había resultado, se da por real y la franja dirá "Sin conexión";
+    // si ya había uno, se respeta.
+    const dudaPorRed = () => {
+      if (!activo) return;
+      setRevision((previa) =>
+        previa?.idUsuario === idUsuario ? previa : { idUsuario, real: true }
+      );
+    };
+
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (error && es_error_red_o_timeout(error)) {
+          dudaPorRed();
+          return;
+        }
+        revisar(data.session);
+      })
+      .catch((e) => {
+        console.warn('No se pudo revisar la sesión de cocina:', e);
+        dudaPorRed();
+      });
+
+    const { data } = supabase.auth.onAuthStateChange((_evento, sesion) => revisar(sesion));
+
+    return () => {
+      activo = false;
+      data.subscription.unsubscribe();
+    };
+  }, [idUsuario]);
+
+  // INICIO: copia guardada y cola del teléfono (no usa la red; los datos frescos
+  // se piden en el efecto de abajo, cuando además haya sesión real)
   useEffect(() => {
     let cancelado = false;
 
     async function iniciar() {
+      setAlmacenListo(false);
       setCargando(true);
       setAbiertasServidor([]);
       setCerradasHoy([]);
@@ -324,16 +412,33 @@ export function KitchenProvider({ children }: { children: ReactNode }) {
 
       if (cancelado) return;
       setCargando(false);
-      await recargar();
+      setAlmacenListo(true);
     }
 
     iniciar();
     return () => {
       cancelado = true;
     };
-    // Solo al cambiar de cafetería (o al iniciar sesión); recargar ya depende de ella
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idCafeteria]);
+
+  // DATOS FRESCOS: en cuanto hay sesión real y ya se leyó el teléfono.
+  // También corre al volver a entrar bien después de una sesión falsa.
+  useEffect(() => {
+    if (!conectado || !almacenListo) return;
+    let cancelado = false;
+
+    // Igual que en INICIO: el trabajo va en una función asíncrona. Así el estado solo
+    // cambia cuando responde el servidor y, si el efecto se limpia antes, no se pide nada.
+    async function pedirDatos() {
+      await Promise.resolve();
+      if (!cancelado) await sincronizarYCargar();
+    }
+
+    pedirDatos().catch(console.warn);
+    return () => {
+      cancelado = true;
+    };
+  }, [conectado, almacenListo, sincronizarYCargar]);
 
   // REALTIME: cualquier cambio en las comandas o sus productos recarga la lista.
   // RLS filtra los eventos: cada cocina solo recibe los de su cafetería.
@@ -466,6 +571,8 @@ export function KitchenProvider({ children }: { children: ReactNode }) {
         cargando,
         recargando,
         sinConexion,
+        // Solo cuenta si hay .env: sin Supabase configurado, cerrar sesión no arregla nada
+        sinSesionReal: supabase_configurado && estadoSesion === 'falsa',
         cambiosPendientes: contarCambiosPendientes(cola),
         recargar,
         cambiarEstadoProducto,
