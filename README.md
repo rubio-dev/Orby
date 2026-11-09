@@ -4,6 +4,90 @@ Aplicación móvil para la cafetería Orby, hecha con **React Native (Expo)** y 
 
 La descripción del proyecto, la arquitectura, las decisiones y los pendientes están en [`docs/`](docs/README.md).
 
+## Equipo y responsabilidades
+
+| Integrante | GitHub | Rol | Rama |
+|---|---|---|---|
+| Gael Guzmán Alarcón | [@cVerox](https://github.com/cVerox) | Administrador | `Admin` |
+| Abigail «Abi» Altamirano González | [@AbigailAltamiranoGonzalez](https://github.com/AbigailAltamiranoGonzalez) | Mesero o cocina (por definir) | `Mesero` o `Cocinero` |
+| Lizbeth García | [@LizbethGarciac](https://github.com/LizbethGarciac) | Mesero o cocina (por definir) | `Mesero` o `Cocinero` |
+| José Emilio Rubio | [@rubio-dev](https://github.com/rubio-dev) | Despliegue y pruebas completas | `Despliegue` |
+
+> **Pendiente:** Abi y Lizbeth se reparten `Mesero` y `Cocinero`. Cuando lo definan, se actualiza esta tabla.
+
+### Administrador — Gael (`Admin`)
+
+- **Inicio:** ventas del día, número de pedidos, variación y productos más vendidos.
+- **Menú:** alta de productos con imagen, precio, categoría y descripción; activar o desactivar productos.
+- **Personal:** alta y baja de meseros y cocineros dentro de la cafetería.
+- **Reportes:** descarga del reporte por periodo.
+- **Perfil:** correo y cambio de contraseña.
+- **Pruebas unitarias** de las pantallas y la lógica de su módulo.
+
+### Mesero — Abi o Lizbeth (`Mesero`)
+
+- **Inicio:** indicadores del turno y accesos rápidos.
+- **Mesas:** estado de cada mesa (libre, ocupada o apartada).
+- **Tomar pedido:** elegir mesa, navegar el menú por categorías, agregar especificaciones y revisar el total.
+- **Envío a cocina:** confirmar la comanda y consultar su resumen.
+- **Notificaciones:** avisos de pedidos listos con mesa y tiempo transcurrido.
+- **Perfil:** correo y cambio de contraseña.
+- **Pruebas unitarias** de las pantallas y la lógica de su módulo.
+
+### Cocina / barra — Abi o Lizbeth (`Cocinero`)
+
+- **Inicio:** indicadores operativos y entrada a las comandas.
+- **Comandas:** pestañas de «en preparación» y «listos», con mesa, productos, cantidades y tiempo de espera.
+- **Detalle de comanda:** marcar productos como en preparación o listos, asignar tiempo estimado, leer especificaciones y cerrar la orden.
+- **Historial** de comandas.
+- **Perfil:** correo y cambio de contraseña.
+- **Pruebas unitarias** de las pantallas y la lógica de su módulo.
+
+### Despliegue y pruebas completas — Emilio (`Despliegue`)
+
+- Verificar que las ramas de los tres roles estén integradas y que `main` compile.
+- Configurar Supabase en la nube: vincular el proyecto, aplicar migraciones, desplegar la Edge Function `registrar-empleado` y habilitar Storage.
+- Revisar las variables de entorno de producción. En la app solo va la llave pública; la secreta nunca se sube al repo.
+- Compilar, firmar y publicar la app con EAS (`build`, `submit` y `update`).
+- Correr las **pruebas completas**: unitarias de todos los módulos, integración, pruebas de humo en dispositivos, RLS con los tres roles y comportamiento sin conexión.
+- Documentar el proceso de despliegue y los resultados de las pruebas.
+
+### Ramas y flujo de trabajo
+
+| Rama | Uso |
+|---|---|
+| `main` | Versión estable. No se trabaja directamente en ella. |
+| `Admin` | Módulo del administrador. |
+| `Mesero` | Módulo del mesero. |
+| `Cocinero` | Módulo de cocina / barra. |
+| `Despliegue` | Despliegue y pruebas completas (se crea a partir de `main` cuando las ramas de los roles estén listas). |
+
+- Cada rama sale de `main` y se integra de vuelta con un **pull request**.
+- Los commits siguen el formato `tipo(alcance): resumen`, por ejemplo `feat(mesero): ...`, `fix(cocina): ...` o `docs: ...`.
+- Antes de abrir el PR, la rama debe pasar `pnpm lint`, `pnpm typecheck` y sus pruebas unitarias.
+- El PR describe qué cambió, cómo probarlo y qué pantallas o flujos toca.
+
+### Pruebas unitarias
+
+Cada integrante prueba su propio módulo **en su rama** antes de integrarlo.
+
+- **Administrador:** métricas, altas y bajas de personal, catálogo, reportes y permisos.
+- **Mesero:** estados de mesa, armado del carrito, totales, especificaciones y notificaciones.
+- **Cocina:** cambios de estado por producto, tiempos estimados, cierre de comanda e historial.
+- **Despliegue:** además de correr todas las pruebas, valida la app instalada contra Supabase en la nube.
+
+El proyecto todavía no tiene un runner de pruebas configurado. La primera persona que agregue pruebas debe dejar el comando `pnpm test` funcionando y actualizar esta sección. Para Expo, la base recomendada es `jest-expo` con `@testing-library/react-native`.
+
+### Antes de publicar
+
+- [ ] Las ramas de los tres roles están integradas en `main`.
+- [ ] `pnpm lint` y `pnpm typecheck` pasan sin errores.
+- [ ] Las pruebas unitarias de cada módulo pasan.
+- [ ] Las pruebas completas y de humo pasan en un dispositivo real.
+- [ ] RLS revisado con los usuarios de administrador, mesero y cocina.
+- [ ] No hay `.env`, llaves ni contraseñas en el repositorio.
+- [ ] La app apunta a Supabase en la nube y la compilación de EAS está lista.
+
 ## Stack
 
 | Pieza | Para qué |
