@@ -40,7 +40,11 @@
           "cameraPermission": "Orby necesita acceso a tu cámara para tomar fotos de productos."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
