@@ -67,11 +67,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         try {
-          const { data, error } = await obtener_supabase().auth.getSession();
+          const supabase = obtener_supabase();
+          const { data, error } = await supabase.auth.getSession();
           if (!error && (!data.session || data.session.user.id !== guardado.id_usuario)) {
             await AsyncStorage.removeItem(STORAGE_KEY_USUARIO);
             return;
           }
+
+          // El JWT puede seguir vivo aunque la cuenta ya se haya borrado. Se lee el
+          // perfil real para confirmar que el usuario todavía existe y traer su rol actual.
+          if (data.session) {
+            const { data: perfil, error: perfilError } = await supabase
+              .from('usuario')
+              .select('*')
+              .eq('id_usuario', data.session.user.id)
+              .maybeSingle();
+
+            if (!perfilError && !perfil) {
+              await AsyncStorage.removeItem(STORAGE_KEY_USUARIO);
+              return;
+            }
+
+            const rol = perfil ? NOMBRES_ROLES[perfil.id_rol] : null;
+            if (perfil && rol) {
+              const fresco: Usuario = {
+                id_usuario: perfil.id_usuario,
+                id_cafeteria: perfil.id_cafeteria,
+                nombre: perfil.nombre,
+                correo: data.session.user.email ?? guardado.correo,
+                id_rol: perfil.id_rol,
+                rol,
+                foto: perfil.foto,
+                push_token: perfil.push_token,
+              };
+              setUsuario(fresco);
+              await AsyncStorage.setItem(STORAGE_KEY_USUARIO, JSON.stringify(fresco));
+              return;
+            }
+          }
+
           setUsuario(guardado);
         } catch {
           // Sin red no se puede verificar; se conserva la sesión guardada.
