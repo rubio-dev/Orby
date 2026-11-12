@@ -29,8 +29,9 @@ La descripción del proyecto, la arquitectura, las decisiones y los pendientes e
 - **Inicio:** indicadores del turno y accesos rápidos.
 - **Mesas:** estado de cada mesa (libre, ocupada o apartada). Una mesa con cuenta abierta se bloquea para nuevas cuentas.
 - **Tomar pedido:** elegir **comer aquí** (mesa) o **para llevar** (nombre del cliente), navegar el menú por categorías, agregar especificaciones y revisar el total.
-- **Envío a cocina:** confirmar la comanda y consultar su resumen.
-- **Cerrar cuenta:** liberar la mesa y dejar la venta en las métricas del administrador.
+- **Envío a cocina:** confirmar la comanda y consultar su resumen. Para llevar se cobra al crear el pedido.
+- **Entrega:** marcar como entregados los productos que la cocina ya tiene listos.
+- **Cobrar y cerrar cuenta:** elegir método de pago, liberar la mesa y generar el voucher.
 - **Notificaciones:** avisos de pedidos listos con mesa o nombre del cliente y tiempo transcurrido.
 - **Perfil:** correo y cambio de contraseña.
 - **Pruebas unitarias** de las pantallas y la lógica de su módulo.
@@ -39,7 +40,7 @@ La descripción del proyecto, la arquitectura, las decisiones y los pendientes e
 
 - **Inicio:** indicadores operativos y entrada a las comandas.
 - **Comandas:** pestañas de «en preparación» y «listos», con mesa o pedido para llevar, productos, cantidades y tiempo de espera.
-- **Detalle de comanda:** marcar productos como en preparación o listos, asignar tiempo estimado, leer especificaciones y cerrar la orden.
+- **Detalle de comanda:** marcar productos como en preparación o listos, asignar tiempo estimado y leer especificaciones. El mesero confirma la entrega.
 - **Historial** de comandas.
 - **Perfil:** correo y cambio de contraseña.
 - **Pruebas unitarias** de las pantallas y la lógica de su módulo.

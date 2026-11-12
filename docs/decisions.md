@@ -4,6 +4,15 @@ Cada decisión lleva su fecha, qué se decidió y por qué. Las más recientes v
 
 ---
 
+## 2026-11-14: Entrega, cobro y voucher
+
+- **Flujo:** la cocina marca los productos como listos y el mesero los marca como **entregados**. La cuenta no se puede cerrar si quedan productos pendientes, en preparación o listos sin entregar.
+- **Comer aquí:** la cuenta se cobra al final. El mesero elige método de pago (efectivo, tarjeta o transferencia), la comanda pasa a cerrada y la mesa queda libre.
+- **Para llevar:** se cobra al crear la comanda, antes de que la cocina empiece. Al entregar todos los productos, la comanda se cierra.
+- **Voucher:** al cobrar se genera un comprobante interno en PDF de 80 mm con folio, mesa o cliente, productos, total y método de pago. Se puede compartir o imprimir.
+- **Base:** `comanda` gana `pagado`, `metodo_pago`, `fecha_pago` y `fecha_entrega`. Las funciones nuevas son `entregar_comanda` y `cerrar_comanda`; `crear_comanda` acepta el cobro inmediato de los pedidos para llevar.
+- **Consecuencia:** hay que aplicar la migración `20261113000004` en local y en la nube. El pago se registra en la app, pero no se procesa con una pasarela.
+
 ## 2026-11-13: Comer aquí o para llevar; la mesa se ocupa y se cierra
 
 - **Decisión:** una comanda ahora tiene `tipo_servicio` (`mesa` o `llevar`). Las de mesa llevan `id_mesa`; las de llevar lo dejan en `NULL` y guardan `nombre_cliente` para llamar al cliente.

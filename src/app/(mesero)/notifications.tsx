@@ -24,13 +24,14 @@ export default function MeseroNotificationsScreen() {
     <TouchableOpacity
       activeOpacity={0.8}
       onPress={() => {
-        marcarNotificacionLeida(item.id_notificacion);
+        if (!item.leida) marcarNotificacionLeida(item.id_notificacion);
+        router.push(`/(mesero)/account?id=${item.id_comanda}` as any);
       }}
       accessibilityRole="button"
       accessibilityLabel={`Pedido listo, ${item.etiqueta}, ${item.tiempo}${
         item.leida ? ', leída' : ', sin leer'
       }`}
-      accessibilityHint={item.leida ? undefined : 'Marca la notificación como leída'}
+      accessibilityHint="Abre la cuenta y marca la notificación como leída"
       accessibilityState={{ selected: item.leida }}
       style={[
         estilos.tarjeta,

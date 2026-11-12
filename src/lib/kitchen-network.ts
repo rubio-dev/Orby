@@ -69,6 +69,10 @@ export type ComandaCocina = {
   num_mesa: number; // 0 en pedidos para llevar
   tipo_servicio: 'mesa' | 'llevar';
   nombre_cliente: string | null;
+  pagado: boolean;
+  metodo_pago: 'efectivo' | 'tarjeta' | 'transferencia' | null;
+  fecha_pago: string | null;
+  fecha_entrega: string | null;
   id_usuario: string; // El mesero que abrió la cuenta: a él le llega el aviso de "listo"
   id_estado: number;
   total: number;
@@ -94,7 +98,7 @@ export function etiquetaComanda(comanda: {
 // PostgREST arma los objetos anidados siguiendo las llaves foráneas.
 export const SELECT_COMANDA_COCINA =
   'id_comanda, id_cafeteria, id_mesa, id_usuario, id_estado, total, fecha_creacion, ' +
-  'tipo_servicio, nombre_cliente, ' +
+  'tipo_servicio, nombre_cliente, pagado, metodo_pago, fecha_pago, fecha_entrega, ' +
   'mesa(num_mesa), ' +
   'detalle_comanda(id_detalle, id_comanda, id_producto, cantidad, precio_unitario, especificaciones, ' +
   'tiempo_estimado, id_estado, fecha_creacion, producto(nombre_producto))';
@@ -118,6 +122,13 @@ export function mapearComandaCocina(fila: Record<string, unknown>): ComandaCocin
     num_mesa: Number(mesa?.num_mesa ?? 0),
     tipo_servicio: fila.tipo_servicio === 'llevar' ? 'llevar' : 'mesa',
     nombre_cliente: (fila.nombre_cliente as string | null) ?? null,
+    pagado: Boolean(fila.pagado),
+    metodo_pago:
+      fila.metodo_pago === 'efectivo' || fila.metodo_pago === 'tarjeta' || fila.metodo_pago === 'transferencia'
+        ? fila.metodo_pago
+        : null,
+    fecha_pago: (fila.fecha_pago as string | null) ?? null,
+    fecha_entrega: (fila.fecha_entrega as string | null) ?? null,
     id_usuario: String(fila.id_usuario),
     id_estado: Number(fila.id_estado),
     total: Number(fila.total ?? 0),

@@ -26,7 +26,7 @@ import {
   type ComandaCocina,
 } from '@/lib/kitchen-network';
 import { obtener_supabase } from '@/lib/supabase';
-import type { Comanda, EstadoMesa, Mesa, TipoServicio } from '@/types';
+import type { Comanda, EstadoMesa, Mesa, MetodoPago, TipoServicio } from '@/types';
 
 const STORAGE_KEY_MESAS = '@orby_mesas';
 
@@ -39,7 +39,7 @@ const ESPERA_RECARGA_REALTIME_MS = 400;
 // La notificación no guarda el número de mesa: se llega por su comanda.
 const SELECT_NOTIFICACION =
   'id_notificacion, id_comanda, id_tipo, leida, fecha_creacion, ' +
-  'comanda(mesa(num_mesa), tipo_servicio, nombre_cliente)';
+  'comanda(mesa(num_mesa), tipo_servicio, nombre_cliente, pagado, metodo_pago)';
 
 export type OperacionColaMesa = {
   id_operacion: string;
@@ -96,6 +96,7 @@ function mesaDesdeFila(fila: Record<string, unknown>): Mesa {
 
 export type NotificacionItem = {
   id_notificacion: string;
+  id_comanda: string;
   num_mesa: number;
   etiqueta: string;
   tiempo: string;
@@ -136,6 +137,10 @@ function mapearComanda(datos: ComandaCocina): Comanda {
     num_mesa: datos.num_mesa,
     tipo_servicio: datos.tipo_servicio,
     nombre_cliente: datos.nombre_cliente,
+    pagado: datos.pagado,
+    metodo_pago: datos.metodo_pago,
+    fecha_pago: datos.fecha_pago,
+    fecha_entrega: datos.fecha_entrega,
     id_usuario: datos.id_usuario,
     id_estado: datos.id_estado,
     estado:
@@ -179,6 +184,7 @@ function mapearNotificacion(fila: Record<string, unknown>): NotificacionItem {
 
   return {
     id_notificacion: String(fila.id_notificacion),
+    id_comanda: String(fila.id_comanda),
     num_mesa: numMesa,
     etiqueta: etiquetaComanda({
       tipo_servicio: comanda?.tipo_servicio,
@@ -240,12 +246,20 @@ export type OrdersContextType = {
   seleccionarMesa: (num_mesa: number) => void;
   seleccionarTipoServicio: (tipo: TipoServicio) => void;
   actualizarNombreCliente: (nombre: string) => void;
-  cerrarCuentaMesa: (num_mesa: number) => Promise<ResultadoOperacionMesa>;
+  cerrarCuentaMesa: (
+    num_mesa: number,
+    metodo_pago: MetodoPago
+  ) => Promise<ResultadoOperacionMesa & { comanda?: Comanda }>;
+  marcarComandaEntregada: (
+    id_comanda: string
+  ) => Promise<{ exito: boolean; entregados?: number; error?: string }>;
   agregarAlCarrito: (producto: ItemCarrito) => void;
   quitarDelCarrito: (id_producto: string) => void;
   actualizarEspecificaciones: (id_producto: string, especificaciones: string) => void;
   limpiarCarrito: () => void;
-  enviarComandaACocina: (especificacionesGenerales?: string) => Promise<{ exito: boolean; comanda?: Comanda; error?: string }>;
+  enviarComandaACocina: (opciones?: {
+    metodoPago?: MetodoPago;
+  }) => Promise<{ exito: boolean; comanda?: Comanda; error?: string }>;
   marcarNotificacionLeida: (id_notificacion: string) => void;
 };
 
@@ -1182,7 +1196,10 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   };
 
   // Cerrar la cuenta de una mesa: la comanda pasa a cerrada y la mesa queda libre.
-  const cerrarCuentaMesa = async (num_mesa: number): Promise<ResultadoOperacionMesa> => {
+  const cerrarCuentaMesa = async (
+    num_mesa: number,
+    metodo_pago: MetodoPago
+  ): Promise<ResultadoOperacionMesa & { comanda?: Comanda }> => {
     if (!conectado) {
       return { exito: false, error: 'No hay una sesión real de Supabase. Vuelve a iniciar sesión.' };
     }
@@ -1195,7 +1212,10 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     try {
       const supabase = obtener_supabase();
       const { resultado, fallo_red } = await con_reintentos(async () =>
-        await supabase.rpc('cerrar_comanda', { p_id_mesa: mesa.id_mesa })
+        await supabase.rpc('cerrar_comanda', {
+          p_id_mesa: mesa.id_mesa,
+          p_metodo_pago: metodo_pago,
+        })
       );
 
       if (fallo_red) {
@@ -1210,7 +1230,30 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
         if (mensaje.includes('MESA_INVALIDA')) {
           return { exito: false, error: 'La mesa ya no existe en esta cafetería.' };
         }
+        if (mensaje.includes('PEDIDOS_PENDIENTES')) {
+          return { exito: false, error: 'La cocina todavía tiene productos pendientes.' };
+        }
+        if (mensaje.includes('PEDIDOS_NO_ENTREGADOS')) {
+          return { exito: false, error: 'Marca como entregados los productos listos antes de cobrar.' };
+        }
+        if (mensaje.includes('METODO_PAGO_INVALIDO')) {
+          return { exito: false, error: 'Selecciona un método de pago válido.' };
+        }
         return { exito: false, error: traducir_error(resultado.error) };
+      }
+
+      let comandaCerrada: Comanda | undefined;
+      if (typeof resultado?.data === 'string') {
+        const { data } = await supabase
+          .from('comanda')
+          .select(SELECT_COMANDA_COCINA)
+          .eq('id_comanda', resultado.data)
+          .maybeSingle();
+        if (data) {
+          comandaCerrada = mapearComanda(
+            mapearComandaCocina(data as unknown as Record<string, unknown>)
+          );
+        }
       }
 
       const actualizadas = mesas.map((m) =>
@@ -1219,9 +1262,40 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       setMesas(actualizadas);
       await AsyncStorage.setItem(storageKeyMesas, JSON.stringify(actualizadas));
       await cargarComandas();
-      return { exito: true };
+      return { exito: true, comanda: comandaCerrada };
     } catch (err) {
       console.warn('Excepción al cerrar la cuenta de la mesa:', err);
+      return { exito: false, error: MENSAJE_SIN_CONEXION };
+    }
+  };
+
+  // El mesero confirma que llevó los productos listos a la mesa o al mostrador.
+  const marcarComandaEntregada = async (
+    id_comanda: string
+  ): Promise<{ exito: boolean; entregados?: number; error?: string }> => {
+    if (!conectado) {
+      return { exito: false, error: 'No hay una sesión real de Supabase. Vuelve a iniciar sesión.' };
+    }
+
+    try {
+      const supabase = obtener_supabase();
+      const { resultado, fallo_red } = await con_reintentos(async () =>
+        await supabase.rpc('entregar_comanda', { p_id_comanda: id_comanda })
+      );
+
+      if (fallo_red) return { exito: false, error: MENSAJE_SIN_CONEXION };
+      if (resultado?.error) {
+        const mensaje = resultado.error.message ?? '';
+        if (mensaje.includes('COMANDA_INVALIDA')) {
+          return { exito: false, error: 'La comanda ya no existe.' };
+        }
+        return { exito: false, error: traducir_error(resultado.error) };
+      }
+
+      await cargarComandas();
+      return { exito: true, entregados: Number(resultado?.data ?? 0) };
+    } catch (err) {
+      console.warn('Excepción al marcar la comanda como entregada:', err);
       return { exito: false, error: MENSAJE_SIN_CONEXION };
     }
   };
@@ -1269,7 +1343,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   // Con sesión real la base hace todo en una transacción (crear o reutilizar la cuenta
   // abierta de la mesa, guardar los productos y marcar la mesa como ocupada). Así la
   // cocina recibe la comanda completa por Realtime y no queda una cabecera sin productos.
-  const enviarComandaACocina = async (especificacionesGenerales?: string) => {
+  const enviarComandaACocina = async (opciones?: { metodoPago?: MetodoPago }) => {
     if (carrito.length === 0) {
       return { exito: false, error: 'El carrito está vacío' };
     }
@@ -1291,9 +1365,14 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
 
     const esLlevar = tipoServicio === 'llevar';
     const nombreLimpio = nombreCliente.trim();
+    const metodoPago = opciones?.metodoPago;
 
     if (esLlevar && !nombreLimpio) {
       return { exito: false, error: 'Escribe el nombre del cliente para el pedido para llevar.' };
+    }
+
+    if (esLlevar && !metodoPago) {
+      return { exito: false, error: 'Selecciona cómo se pagó el pedido para llevar.' };
     }
 
     if (!esLlevar && !mesaElegida) {
@@ -1328,7 +1407,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
         id_detalle: generarUuid(),
         id_producto: item.id_producto,
         cantidad: item.cantidad,
-        especificaciones: (item.especificaciones || especificacionesGenerales || '').trim(),
+        especificaciones: (item.especificaciones || '').trim(),
         tiempo_estimado: 15,
         id_estado: 2, // 2 = en preparación en detalle_comanda
       }));
@@ -1340,6 +1419,8 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
           p_detalles: detalles,
           p_tipo_servicio: tipoServicio,
           p_nombre_cliente: esLlevar ? nombreLimpio : null,
+          p_pagado: esLlevar,
+          p_metodo_pago: esLlevar ? metodoPago : null,
         })
       );
 
@@ -1353,9 +1434,24 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
 
       // La mesa ya se marcó ocupada en la función; esto actualiza la copia local.
       if (!esLlevar) await cambiarEstadoMesa(numMesa, 'ocupada');
+
+      let comandaCreada: Comanda | undefined;
+      if (typeof resultado?.data === 'string') {
+        const { data } = await supabase
+          .from('comanda')
+          .select(SELECT_COMANDA_COCINA)
+          .eq('id_comanda', resultado.data)
+          .maybeSingle();
+        if (data) {
+          comandaCreada = mapearComanda(
+            mapearComandaCocina(data as unknown as Record<string, unknown>)
+          );
+        }
+      }
+
       limpiarCarrito();
       await cargarComandas();
-      return { exito: true };
+      return { exito: true, comanda: comandaCreada };
     } catch (err) {
       console.warn('Excepción al enviar la comanda a Supabase:', err);
       return { exito: false, error: MENSAJE_SIN_CONEXION };
@@ -1408,6 +1504,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
         seleccionarTipoServicio,
         actualizarNombreCliente,
         cerrarCuentaMesa,
+        marcarComandaEntregada,
         agregarAlCarrito,
         quitarDelCarrito,
         actualizarEspecificaciones,

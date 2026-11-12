@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -16,13 +16,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CustomButton } from '@/components/CustomButton';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { VoucherModal } from '@/components/VoucherModal';
+import { useAuth } from '@/context/auth-context';
 import { useOrders } from '@/context/orders-context';
+import { mostrarAviso } from '@/lib/confirm';
+import { obtenerNombreCafeteria } from '@/lib/pdf-report';
 import { espaciado, fuentes, radios, useTema } from '@/theme';
-import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
+import type { Comanda, MetodoPago } from '@/types';
+
+const METODOS_PAGO: { id: MetodoPago; etiqueta: string }[] = [
+  { id: 'efectivo', etiqueta: 'Efectivo' },
+  { id: 'tarjeta', etiqueta: 'Tarjeta' },
+  { id: 'transferencia', etiqueta: 'Transferencia' },
+];
 
 export default function MeseroOrderSummaryScreen() {
   const router = useRouter();
   const { colores } = useTema();
+  const { usuario } = useAuth();
   const {
     carrito,
     mesaSeleccionada,
@@ -34,6 +45,18 @@ export default function MeseroOrderSummaryScreen() {
   } = useOrders();
 
   const [cargando, setCargando] = useState(false);
+  const [metodoPago, setMetodoPago] = useState<MetodoPago | null>(null);
+  const [voucher, setVoucher] = useState<Comanda | null>(null);
+  const [nombreCafeteria, setNombreCafeteria] = useState('Cafetería');
+
+  useEffect(() => {
+    if (!usuario?.id_cafeteria) return;
+    obtenerNombreCafeteria(usuario.id_cafeteria)
+      .then((nombre) => {
+        if (nombre) setNombreCafeteria(nombre);
+      })
+      .catch(() => {});
+  }, [usuario?.id_cafeteria]);
 
   const total = carrito.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
   const esLlevar = tipoServicio === 'llevar';
@@ -45,25 +68,45 @@ export default function MeseroOrderSummaryScreen() {
       return;
     }
 
-    if (esLlevar && !nombreCliente.trim()) {
+    const nombrePedido = nombreCliente.trim();
+
+    if (esLlevar && !nombrePedido) {
       mostrarAviso('Falta el nombre', 'Escribe el nombre del cliente para el pedido para llevar.');
       return;
     }
 
+    if (esLlevar && !metodoPago) {
+      mostrarAviso('Falta el pago', 'Selecciona cómo se pagó el pedido para llevar.');
+      return;
+    }
+
     setCargando(true);
-    const resultado = await enviarComandaACocina();
+    const resultado = await enviarComandaACocina({
+      metodoPago: esLlevar ? metodoPago ?? undefined : undefined,
+    });
     setCargando(false);
 
     if (resultado.exito) {
+      if (esLlevar) {
+        if (resultado.comanda) {
+          setVoucher(resultado.comanda);
+        } else {
+          mostrarAviso(
+            '¡Pedido para llevar enviado!',
+            `El pedido de ${nombrePedido} por un total de $${total} fue cobrado y enviado a la cocina.`,
+            [{ text: 'Aceptar', onPress: () => router.replace('/(mesero)') }]
+          );
+        }
+        return;
+      }
+
       mostrarAviso(
         '¡Comanda enviada!',
-        esLlevar
-          ? `El pedido para llevar de ${nombreCliente.trim()} por un total de $${total} fue enviado a la cocina.`
-          : `El pedido de la Mesa ${mesaSeleccionada} por un total de $${total} fue enviado exitosamente a la cocina.`,
+        `El pedido de la Mesa ${mesaSeleccionada} por un total de $${total} fue enviado exitosamente a la cocina.`,
         [
           {
-            text: esLlevar ? 'Volver al inicio' : 'Ver mesas',
-            onPress: () => router.replace(esLlevar ? '/(mesero)' : '/(mesero)/tables'),
+            text: 'Ver mesas',
+            onPress: () => router.replace('/(mesero)/tables'),
           },
         ]
       );
@@ -89,18 +132,57 @@ export default function MeseroOrderSummaryScreen() {
           showsVerticalScrollIndicator={false}
         >
           {esLlevar && (
-            <View
-              accessible
-              accessibilityLabel={`Pedido para llevar de ${nombreCliente}`}
-              style={[estilos.tarjetaCliente, { backgroundColor: colores.primary_soft }]}
-            >
-              <Text style={[estilos.clienteEtiqueta, { color: colores.primary_strong }]}>
-                Para llevar
-              </Text>
-              <Text style={[estilos.clienteNombre, { color: colores.text }]}>
-                {nombreCliente}
-              </Text>
-            </View>
+            <>
+              <View
+                accessible
+                accessibilityLabel={`Pedido para llevar de ${nombreCliente}`}
+                style={[estilos.tarjetaCliente, { backgroundColor: colores.primary_soft }]}
+              >
+                <Text style={[estilos.clienteEtiqueta, { color: colores.primary_strong }]}>
+                  Para llevar
+                </Text>
+                <Text style={[estilos.clienteNombre, { color: colores.text }]}>
+                  {nombreCliente}
+                </Text>
+              </View>
+
+              <View style={estilos.metodoPagoSeccion}>
+                <Text style={[estilos.metodoPagoTitulo, { color: colores.text }]}>
+                  ¿Cómo se pagó?
+                </Text>
+                <View style={estilos.metodoPagoFila}>
+                  {METODOS_PAGO.map((metodo) => {
+                    const activo = metodoPago === metodo.id;
+                    return (
+                      <TouchableOpacity
+                        key={metodo.id}
+                        activeOpacity={0.8}
+                        onPress={() => setMetodoPago(metodo.id)}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: activo }}
+                        accessibilityLabel={`Pago con ${metodo.etiqueta}`}
+                        style={[
+                          estilos.metodoPagoBoton,
+                          {
+                            backgroundColor: activo ? colores.primary : colores.surface,
+                            borderColor: activo ? colores.primary : colores.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            estilos.metodoPagoTexto,
+                            { color: activo ? colores.on_primary : colores.text },
+                          ]}
+                        >
+                          {metodo.etiqueta}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </>
           )}
 
           {carrito.map((item) => (
@@ -191,6 +273,17 @@ export default function MeseroOrderSummaryScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <VoucherModal
+        visible={!!voucher}
+        comanda={voucher}
+        nombreCafeteria={nombreCafeteria}
+        metodoPago={metodoPago}
+        onClose={() => {
+          setVoucher(null);
+          router.replace('/(mesero)');
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -219,6 +312,32 @@ const estilos = StyleSheet.create({
     fontFamily: fuentes.bold,
     fontSize: 20,
     marginTop: 2,
+  },
+  metodoPagoSeccion: {
+    marginBottom: espaciado.md,
+  },
+  metodoPagoTitulo: {
+    fontFamily: fuentes.bold,
+    fontSize: 15,
+    marginBottom: espaciado.xs,
+  },
+  metodoPagoFila: {
+    flexDirection: 'row',
+    gap: espaciado.xs,
+  },
+  metodoPagoBoton: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: radios.lg,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: espaciado.xs,
+  },
+  metodoPagoTexto: {
+    fontFamily: fuentes.semibold,
+    fontSize: 13,
+    textAlign: 'center',
   },
   tarjetaItem: {
     borderWidth: 1.5,

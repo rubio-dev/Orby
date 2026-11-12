@@ -13,18 +13,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useOrders } from '@/context/orders-context';
-import { mostrarAviso } from '@/lib/confirm';
 import { espaciado, fuentes, useTema } from '@/theme';
 import type { EstadoMesa, Mesa } from '@/types';
 
 export default function MeseroTablesScreen() {
   const router = useRouter();
   const { colores } = useTema();
-  const { mesas, cambiarEstadoMesa, cerrarCuentaMesa, seleccionarMesa, seleccionarTipoServicio } =
-    useOrders();
+  const { mesas, cambiarEstadoMesa, seleccionarMesa, seleccionarTipoServicio } = useOrders();
 
   const [mesaParaModificar, setMesaParaModificar] = useState<Mesa | null>(null);
-  const [cerrandoCuenta, setCerrandoCuenta] = useState(false);
 
   const handleSeleccionarEstado = async (nuevoEstado: EstadoMesa) => {
     if (mesaParaModificar) {
@@ -42,19 +39,11 @@ export default function MeseroTablesScreen() {
     }
   };
 
-  const handleCerrarCuenta = async () => {
-    if (!mesaParaModificar || cerrandoCuenta) return;
-
-    setCerrandoCuenta(true);
-    const resultado = await cerrarCuentaMesa(mesaParaModificar.num_mesa);
-    setCerrandoCuenta(false);
-
-    if (resultado.exito) {
+  const handleVerCuenta = () => {
+    if (mesaParaModificar) {
       const numMesa = mesaParaModificar.num_mesa;
       setMesaParaModificar(null);
-      mostrarAviso('Cuenta cerrada', `La mesa ${numMesa} quedó libre y la venta se guardó.`);
-    } else {
-      mostrarAviso('No se pudo cerrar la cuenta', resultado.error ?? 'Inténtalo de nuevo.');
+      router.push(`/(mesero)/account?mesa=${numMesa}` as any);
     }
   };
 
@@ -152,16 +141,14 @@ export default function MeseroTablesScreen() {
 
                 <TouchableOpacity
                   activeOpacity={0.85}
-                  disabled={cerrandoCuenta}
-                  onPress={handleCerrarCuenta}
+                  onPress={handleVerCuenta}
                   accessibilityRole="button"
-                  accessibilityLabel={`Cerrar cuenta y liberar la mesa ${mesaParaModificar.num_mesa}`}
-                  accessibilityState={{ disabled: cerrandoCuenta, busy: cerrandoCuenta }}
-                  style={[estilos.botonTomarPedidoDirecto, { backgroundColor: colores.surface, opacity: cerrandoCuenta ? 0.6 : 1 }]}
+                  accessibilityLabel={`Ver cuenta y cobrar la mesa ${mesaParaModificar.num_mesa}`}
+                  style={[estilos.botonTomarPedidoDirecto, { backgroundColor: colores.surface }]}
                 >
-                  <Ionicons name="checkmark-done-outline" size={20} color={colores.primary} />
+                  <Ionicons name="receipt-outline" size={20} color={colores.primary} />
                   <Text style={[estilos.textoTomarPedidoDirecto, { color: colores.primary }]}>
-                    {cerrandoCuenta ? 'Cerrando cuenta...' : 'Cerrar cuenta y liberar mesa'}
+                    Ver cuenta y cobrar
                   </Text>
                 </TouchableOpacity>
               </>

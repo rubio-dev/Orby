@@ -58,6 +58,8 @@ export type EstadoComanda = 'pendiente' | 'en preparación' | 'listo' | 'entrega
 
 export type TipoServicio = 'mesa' | 'llevar';
 
+export type MetodoPago = 'efectivo' | 'tarjeta' | 'transferencia';
+
 export type DetalleComanda = {
   id_detalle: string;
   id_comanda: string;
@@ -77,6 +79,10 @@ export type Comanda = {
   num_mesa: number; // 0 en pedidos para llevar
   tipo_servicio: TipoServicio;
   nombre_cliente?: string | null;
+  pagado: boolean;
+  metodo_pago?: MetodoPago | null;
+  fecha_pago?: string | null;
+  fecha_entrega?: string | null;
   id_usuario: string;
   nombre_mesero?: string;
   id_estado: number;
