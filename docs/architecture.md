@@ -37,8 +37,8 @@ Es una propuesta: el diseño de la base de datos lo define el compañero a cargo
 | Login con correo y contraseña | **Auth** |
 | Saber el rol del usuario y redirigirlo | Rol guardado en el perfil del empleado y leído después del login |
 | RBAC "desde el backend" | **RLS (Row Level Security)**: reglas en Postgres que limitan qué filas lee o modifica cada rol |
-| Comandas al instante entre mesero y cocina | **Realtime**: la app se suscribe a los cambios de las tablas de órdenes. **Propuesto:** todavía no hay suscripciones en el código (ver [open-questions](open-questions.md#técnico)) |
-| Aviso de "pedido listo" al mesero | **Realtime** dentro de la app. **Propuesto:** todavía no hay suscripciones; las notificaciones push quedan pendientes (ver [open-questions](open-questions.md#técnico)) |
+| Comandas al instante entre mesero y cocina | **Realtime**: `KitchenProvider` y `OrdersProvider` se suscriben a `comanda` y `detalle_comanda` con una sesión real. La escritura usa la función `crear_comanda` para que cabecera y productos entren juntos |
+| Aviso de "pedido listo" al mesero | **Realtime** sobre `notificacion` dentro de la app. Las notificaciones push con la app cerrada quedan pendientes (ver [open-questions](open-questions.md#técnico)) |
 | Leer y escribir datos sin programar endpoints | **API REST automática (PostgREST)** a través de `supabase-js` |
 | Imagen de productos | **Storage** |
 | Crear cuentas de empleados desde el admin | **Edge Function**: requiere la llave secreta, que no puede ir en la app |

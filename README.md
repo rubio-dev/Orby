@@ -221,12 +221,12 @@ Si el teléfono sigue sin conectar:
 Cuando el proyecto esté listo para publicarse:
 
 1. Crear el proyecto en [supabase.com](https://supabase.com/dashboard).
-2. En `.env`, cambiar la URL por `https://<id-del-proyecto>.supabase.co` y poner la *Publishable key* del panel (**Project Settings → API Keys**).
+2. En `.env` (o `.env.local`, que tiene prioridad), cambiar la URL por `https://<id-del-proyecto>.supabase.co` y poner la *Publishable key* del panel (**Project Settings → API Keys**).
 3. Vincular el repo con el proyecto y subir la estructura de la base de datos:
    ```bash
-   pnpm supabase login
-   pnpm supabase link --project-ref <id-del-proyecto>
-   pnpm supabase db push
+   pnpm exec supabase login
+   pnpm exec supabase link --project-ref <id-del-proyecto>
+   pnpm exec supabase db push --include-seed   # --include-seed es opcional: datos demo
    ```
 
 Las tablas y permisos se escriben como **migraciones**: archivos `.sql` en `supabase/migrations/`, que se crean con `pnpm supabase migration new <nombre>`. Se prueban en local y `db push` las aplica en la nube. Así los dos entornos tienen la misma estructura y todo queda versionado en git.

@@ -4,6 +4,15 @@ Cada decisión lleva su fecha, qué se decidió y por qué. Las más recientes v
 
 ---
 
+## 2026-11-12: Comandas reales en Supabase y Realtime entre mesero y cocina
+
+- **Decisión:** `enviarComandaACocina` deja de escribir solo la cabecera. Llama a la función `crear_comanda(p_id_comanda, p_id_mesa, p_detalles)` de `20261112000001_crear_comanda.sql`, que crea o reutiliza la cuenta abierta de la mesa, guarda los productos, calcula el total con el precio del catálogo y marca la mesa como ocupada en una sola transacción. El teléfono manda UUID estables para la comanda y cada producto, así que un reintento por timeout no duplica el pedido.
+- **Realtime:** `OrdersProvider` se suscribe a `comanda`, `detalle_comanda` y `notificacion` cuando hay una sesión real de Supabase. La cocina ya lo hacía desde `20261107000000_cocina_realtime.sql`; ahora el mesero recibe los cambios de preparación y sus avisos. `20261112000000_notificacion_realtime.sql` agrega `notificacion` a la publicación.
+- **Sesión real:** igual que en cocina, no se consulta ni se envía nada con un usuario demo. Sin sesión de Supabase, RLS devuelve 0 filas sin error y parecería que no hay pedidos.
+- **Precio:** la función ignora el precio que manda el teléfono y usa `producto.precio`. El cliente solo envía producto, cantidad, especificaciones, tiempo estimado y estado.
+- **Semilla:** `seed.sql` ahora incluye 10 productos demo (bebidas, comida y postres) para que el menú no salga vacío al probar el flujo completo. Se insertan con IDs fijos y `ON CONFLICT DO NOTHING`, así que no pisan cambios del administrador. Las contraseñas demo usan `extensions.crypt` y `extensions.gen_salt`, porque en Supabase en la nube `pgcrypto` vive en el esquema `extensions` y no siempre está en el `search_path`.
+- **Consecuencia:** hay que aplicar las migraciones nuevas en local y en la nube antes de probar. Las notificaciones con la app cerrada siguen pendientes (`expo-notifications` y un *development build*).
+
 ## 2026-10-20: El modo del sistema se aplica después de hidratar (solo web)
 
 - **Decisión:** en `src/theme/theme-provider.tsx`, el modo que sigue al sistema se resuelve hasta después de hidratar, con `useSyncExternalStore`. La primera pasada de web siempre sale en modo claro.

@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { RealtimeChannel, Session } from '@supabase/supabase-js';
 import React, {
   createContext,
   useCallback,
@@ -14,9 +15,15 @@ import { useAuth } from '@/context/auth-context';
 import {
   con_reintentos,
   es_error_red_o_timeout,
+  MENSAJE_SIN_CONEXION,
   traducir_error,
 } from '@/lib/auth';
 import { supabase_configurado } from '@/lib/env';
+import {
+  mapearComandaCocina,
+  SELECT_COMANDA_COCINA,
+  type ComandaCocina,
+} from '@/lib/kitchen-network';
 import { obtener_supabase } from '@/lib/supabase';
 import type { Comanda, EstadoMesa, Mesa } from '@/types';
 
@@ -25,6 +32,14 @@ const STORAGE_KEY_COMANDAS = '@orby_comandas';
 const STORAGE_KEY_NOTIFICACIONES = '@orby_notificaciones';
 
 const claveColaMesas = (idCafeteria: string) => `@orby_cola_mesas_${idCafeteria}`;
+
+// Realtime manda varios eventos seguidos (una comanda con 5 productos = varios avisos):
+// se espera un momento y se recarga una sola vez, igual que en cocina.
+const ESPERA_RECARGA_REALTIME_MS = 400;
+
+// La notificación no guarda el número de mesa: se llega por su comanda.
+const SELECT_NOTIFICACION =
+  'id_notificacion, id_comanda, id_tipo, leida, fecha_creacion, comanda(mesa(num_mesa))';
 
 export type OperacionColaMesa = {
   id_operacion: string;
@@ -333,6 +348,88 @@ const NOTIFICACIONES_INICIALES: NotificacionItem[] = [
   { id_notificacion: 'not-4', num_mesa: 10, tiempo: 'hace 5 min', leida: true, fecha: new Date().toISOString() },
 ];
 
+// Medianoche de hoy en la hora del teléfono: el inicio solo cuenta los pedidos del día.
+function inicioDeHoyIso() {
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  return hoy.toISOString();
+}
+
+// Texto corto para la lista de avisos ("hace 2 min", "hace 1 h").
+function tiempoRelativo(fecha: string) {
+  const minutos = Math.max(0, Math.floor((Date.now() - new Date(fecha).getTime()) / 60000));
+  if (minutos < 1) return 'ahora';
+  if (minutos === 1) return 'hace 1 min';
+  if (minutos < 60) return `hace ${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  return horas === 1 ? 'hace 1 h' : `hace ${horas} h`;
+}
+
+// PostgREST devuelve la relación como objeto, pero según la llave puede venir como arreglo.
+function primero<T>(valor: T | T[] | null | undefined): T | null {
+  if (Array.isArray(valor)) return valor[0] ?? null;
+  return valor ?? null;
+}
+
+// Convierte la fila de Supabase (con mesa y productos) al tipo que usan las pantallas.
+// El estado de preparación vive en cada producto; la comanda solo está abierta, cerrada o cancelada.
+function mapearComanda(datos: ComandaCocina): Comanda {
+  return {
+    id_comanda: datos.id_comanda,
+    id_cafeteria: datos.id_cafeteria,
+    id_mesa: datos.id_mesa,
+    num_mesa: datos.num_mesa,
+    id_usuario: datos.id_usuario,
+    id_estado: datos.id_estado,
+    estado:
+      datos.id_estado === 1 ? 'en preparación' : datos.id_estado === 2 ? 'entregada' : 'cancelada',
+    total: datos.total,
+    fecha_creacion: datos.fecha_creacion,
+    detalles: datos.detalles.map((detalle) => ({
+      id_detalle: detalle.id_detalle,
+      id_comanda: detalle.id_comanda,
+      id_producto: detalle.id_producto,
+      nombre_producto: detalle.nombre_producto,
+      cantidad: detalle.cantidad,
+      precio_unitario: detalle.precio_unitario,
+      especificaciones: detalle.especificaciones ?? undefined,
+      id_estado: detalle.id_estado,
+      tiempo_estimado_minutos: detalle.tiempo_estimado ?? undefined,
+    })),
+  };
+}
+
+// La notificación llega con comanda(mesa(num_mesa)); se extrae el número sin romper si
+// PostgREST devuelve la relación como arreglo.
+function mapearNotificacion(fila: Record<string, unknown>): NotificacionItem {
+  const comanda = primero(
+    fila.comanda as
+      | { mesa: { num_mesa: number } | { num_mesa: number }[] | null }
+      | { mesa: { num_mesa: number } | { num_mesa: number }[] | null }[]
+      | null
+  );
+  const mesa = primero(comanda?.mesa ?? null);
+  const fecha = String(fila.fecha_creacion ?? new Date().toISOString());
+
+  return {
+    id_notificacion: String(fila.id_notificacion),
+    num_mesa: Number(mesa?.num_mesa ?? 0),
+    tiempo: tiempoRelativo(fecha),
+    leida: Boolean(fila.leida),
+    fecha,
+  };
+}
+
+// Los errores de la función crear_comanda se explican en español.
+function traducirErrorComanda(mensaje: string) {
+  if (mensaje.includes('SIN_SESION')) return 'Tu sesión venció. Vuelve a iniciar sesión.';
+  if (mensaje.includes('SIN_PERMISO')) return 'Tu usuario no puede enviar comandas.';
+  if (mensaje.includes('SIN_PRODUCTOS')) return 'El pedido no contiene productos.';
+  if (mensaje.includes('MESA_INVALIDA')) return 'La mesa ya no existe en esta cafetería.';
+  if (mensaje.includes('PRODUCTO_INVALIDO')) return 'Uno de los productos ya no está disponible.';
+  return 'No se pudo enviar la comanda. Intenta de nuevo.';
+}
+
 export type ItemCarrito = {
   id_producto: string;
   nombre_producto: string;
@@ -375,8 +472,29 @@ const OrdersContext = createContext<OrdersContextType | undefined>(undefined);
 
 export function OrdersProvider({ children }: { children: ReactNode }) {
   const { usuario } = useAuth();
+  const idUsuario = usuario?.id_usuario ?? null;
   const idCafeteria = usuario?.id_cafeteria;
   const storageKeyMesas = idCafeteria ? `@orby_mesas_${idCafeteria}` : STORAGE_KEY_MESAS;
+
+  // SESIÓN REAL
+  // auth-context entra con un usuario demo si el login de Supabase falla. Sin una sesión
+  // de Supabase, RLS devuelve 0 filas SIN error y el mesero vería todo vacío. Por eso se
+  // revisa la sesión antes de consultar o enviar, igual que en cocina.
+  const [revisionSesion, setRevisionSesion] = useState<{
+    idUsuario: string;
+    real: boolean;
+  } | null>(null);
+  const estadoSesion: 'verificando' | 'real' | 'falsa' =
+    !supabase_configurado || !idUsuario
+      ? 'falsa'
+      : revisionSesion?.idUsuario !== idUsuario
+        ? 'verificando'
+        : revisionSesion.real
+          ? 'real'
+          : 'falsa';
+  const sesionReal = estadoSesion === 'real';
+  // "conectado" = se puede hablar con Supabase en nombre de este mesero
+  const conectado = supabase_configurado && sesionReal && esUuidValido(idCafeteria);
 
   const [mesas, setMesas] = useState<Mesa[]>(MESAS_INICIALES);
   const [cargandoMesas, setCargandoMesas] = useState<boolean>(false);
@@ -413,6 +531,51 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   const [colaPendienteMesas, setColaPendienteMesas] = useState<OperacionColaMesa[]>([]);
   const [sincronizandoColaMesas, setSincronizandoColaMesas] = useState<boolean>(false);
   const sincronizandoColaRef = useRef(false);
+  const cargandoComandasRef = useRef(false);
+
+  // REVISAR LA SESIÓN: al entrar y cada vez que Supabase avise un cambio
+  // (inicio, cierre, renovación del token o sesión vencida que no se pudo renovar).
+  useEffect(() => {
+    if (!supabase_configurado || !idUsuario) return;
+
+    let activo = true;
+    const supabase = obtener_supabase();
+
+    const revisar = (sesion: Session | null) => {
+      if (!activo) return;
+      setRevisionSesion({ idUsuario, real: !!sesion && sesion.user.id === idUsuario });
+    };
+
+    // Sin internet, renovar un token vencido falla por red: eso no significa que la sesión
+    // sea falsa. Si aún no había resultado, se da por real; si ya había uno, se respeta.
+    const dudaPorRed = () => {
+      if (!activo) return;
+      setRevisionSesion((previa) =>
+        previa?.idUsuario === idUsuario ? previa : { idUsuario, real: true }
+      );
+    };
+
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (error && es_error_red_o_timeout(error)) {
+          dudaPorRed();
+          return;
+        }
+        revisar(data.session);
+      })
+      .catch((e) => {
+        console.warn('No se pudo revisar la sesión del mesero:', e);
+        dudaPorRed();
+      });
+
+    const { data } = supabase.auth.onAuthStateChange((_evento, sesion) => revisar(sesion));
+
+    return () => {
+      activo = false;
+      data.subscription.unsubscribe();
+    };
+  }, [idUsuario]);
 
   // Encolar operaciones offline para mesas
   const encolarOperacionMesa = useCallback(
@@ -657,6 +820,161 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [idCafeteria, storageKeyMesas, cargarMesasSupabase]);
+
+  // COMANDAS Y AVISOS DESDE SUPABASE
+  // El mesero trae los pedidos de hoy; la cocina se encarga de las cuentas abiertas de días
+  // anteriores. Sin sesión real se conservan los datos locales/demo.
+  const cargarComandas = useCallback(async (): Promise<'ok' | 'red' | 'error'> => {
+    if (!conectado || !idCafeteria || !idUsuario) return 'error';
+    if (cargandoComandasRef.current) return 'ok';
+    cargandoComandasRef.current = true;
+
+    try {
+      const supabase = obtener_supabase();
+      const { resultado, fallo_red } = await con_reintentos(async () =>
+        await supabase
+          .from('comanda')
+          .select(SELECT_COMANDA_COCINA)
+          .eq('id_cafeteria', idCafeteria)
+          .gte('fecha_creacion', inicioDeHoyIso())
+          .order('fecha_creacion', { ascending: false })
+      );
+
+      if (fallo_red) return 'red';
+      if (resultado?.error) {
+        console.warn('Error al cargar comandas del mesero:', resultado.error);
+        return 'error';
+      }
+
+      const nuevas = ((resultado?.data ?? []) as unknown as Record<string, unknown>[]).map(
+        mapearComandaCocina
+      );
+      setComandas(nuevas.map(mapearComanda));
+      return 'ok';
+    } catch (e) {
+      console.warn('Excepción al cargar comandas del mesero:', e);
+      return 'error';
+    } finally {
+      cargandoComandasRef.current = false;
+    }
+  }, [conectado, idCafeteria, idUsuario]);
+
+  const cargarNotificaciones = useCallback(async () => {
+    if (!conectado || !idCafeteria || !idUsuario) return;
+
+    try {
+      const supabase = obtener_supabase();
+      const { resultado, fallo_red } = await con_reintentos(async () =>
+        await supabase
+          .from('notificacion')
+          .select(SELECT_NOTIFICACION)
+          .eq('id_cafeteria', idCafeteria)
+          .eq('id_usuario', idUsuario)
+          .order('fecha_creacion', { ascending: false })
+          .limit(50)
+      );
+
+      if (fallo_red) return;
+      if (resultado?.error) {
+        console.warn('Error al cargar notificaciones del mesero:', resultado.error);
+        return;
+      }
+
+      const nuevas = ((resultado?.data ?? []) as unknown as Record<string, unknown>[]).map(
+        mapearNotificacion
+      );
+      setNotificaciones(nuevas);
+    } catch (e) {
+      console.warn('Excepción al cargar notificaciones del mesero:', e);
+    }
+  }, [conectado, idCafeteria, idUsuario]);
+
+  // CARGA INICIAL: en cuanto hay sesión real
+  useEffect(() => {
+    if (!conectado) return;
+    let cancelado = false;
+
+    // Igual que en cocina: el trabajo va en una función asíncrona y el estado solo cambia
+    // cuando responde el servidor; si el efecto se limpia antes, no se pide nada.
+    async function pedirDatos() {
+      await Promise.resolve();
+      if (cancelado) return;
+      await cargarComandas();
+      if (cancelado) return;
+      await cargarNotificaciones();
+    }
+
+    pedirDatos().catch(console.warn);
+    return () => {
+      cancelado = true;
+    };
+  }, [conectado, cargarComandas, cargarNotificaciones]);
+
+  // REALTIME: comandas, productos y avisos de esta cafetería. RLS filtra los eventos:
+  // el mesero solo recibe las comandas de su cafetería y sus propios avisos.
+  useEffect(() => {
+    if (!conectado || !idCafeteria || !idUsuario) return;
+
+    const supabase = obtener_supabase();
+    let espera: ReturnType<typeof setTimeout> | null = null;
+    let seCayo = false; // Para recargar al reconectar y no perder lo que pasó mientras tanto
+    let activo = true;
+
+    const programarRecarga = () => {
+      if (espera) clearTimeout(espera);
+      espera = setTimeout(() => {
+        cargarComandas().catch(console.warn);
+        cargarNotificaciones().catch(console.warn);
+      }, ESPERA_RECARGA_REALTIME_MS);
+    };
+
+    const canal: RealtimeChannel = supabase
+      .channel(`mesero-${idCafeteria}-${idUsuario}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'comanda', filter: `id_cafeteria=eq.${idCafeteria}` },
+        programarRecarga
+      )
+      // detalle_comanda no tiene id_cafeteria: el filtro lo hace RLS (detalle_lectura_cafeteria)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'detalle_comanda' }, programarRecarga)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notificacion', filter: `id_usuario=eq.${idUsuario}` },
+        programarRecarga
+      )
+      .subscribe((estado) => {
+        if (!activo) return; // Al desmontar también llega CLOSED; no es una caída
+        if (estado === 'SUBSCRIBED') {
+          if (seCayo) {
+            seCayo = false;
+            programarRecarga();
+          }
+        } else if (estado === 'CHANNEL_ERROR' || estado === 'TIMED_OUT' || estado === 'CLOSED') {
+          // supabase-js reintenta solo; aquí solo se recuerda que hubo un hueco
+          seCayo = true;
+        }
+      });
+
+    return () => {
+      activo = false;
+      if (espera) clearTimeout(espera);
+      supabase.removeChannel(canal);
+    };
+  }, [conectado, idCafeteria, idUsuario, cargarComandas, cargarNotificaciones]);
+
+  // AL VOLVER A LA APP: recupera lo que pasó mientras estaba en segundo plano
+  useEffect(() => {
+    if (!conectado) return;
+
+    const suscripcion = AppState.addEventListener('change', (siguiente: AppStateStatus) => {
+      if (siguiente === 'active') {
+        cargarComandas().catch(console.warn);
+        cargarNotificaciones().catch(console.warn);
+      }
+    });
+
+    return () => suscripcion.remove();
+  }, [conectado, cargarComandas, cargarNotificaciones]);
 
   // Cargar estado inicial persistente y sincronizar cuando haya cafetería
   useEffect(() => {
@@ -1090,20 +1408,95 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   };
 
   // Enviar pedido armado a cocina
+  // Con sesión real la base hace todo en una transacción (crear o reutilizar la cuenta
+  // abierta de la mesa, guardar los productos y marcar la mesa como ocupada). Así la
+  // cocina recibe la comanda completa por Realtime y no queda una cabecera sin productos.
   const enviarComandaACocina = async (especificacionesGenerales?: string) => {
     if (carrito.length === 0) {
       return { exito: false, error: 'El carrito está vacío' };
     }
 
+    // Al entrar, la sesión tarda un instante en verificarse: no se manda como demo.
+    if (supabase_configurado && estadoSesion === 'verificando') {
+      return {
+        exito: false,
+        error: 'Estamos verificando tu sesión. Inténtalo de nuevo en un momento.',
+      };
+    }
+
     const mesaActual = mesas.find((m) => m.num_mesa === mesaSeleccionada);
     const total = carrito.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
-    const idComanda = `com-${Date.now()}`;
-    const idMesa = mesaActual?.id_mesa ?? `mesa-${mesaSeleccionada}`;
+    const idMesa = mesaActual?.id_mesa ?? null;
+    // Los IDs se generan una sola vez: si la petición se reintenta, la función reconoce
+    // la comanda y los productos y no los duplica.
+    const idComanda = generarUuid();
+    const usaServidor = conectado && esUuidValido(idMesa) && esUuidValido(idUsuario);
+    const productosReales = carrito.every((item) => esUuidValido(item.id_producto));
+
+    // Con sesión real no se cae al modo demo: si la mesa aún no tiene ID del servidor
+    // (por ejemplo, se creó sin conexión y sigue en la cola), hay que avisar.
+    if (conectado && !usaServidor) {
+      return {
+        exito: false,
+        error: 'La mesa todavía no está sincronizada. Revisa tu conexión e inténtalo de nuevo.',
+      };
+    }
+
+    // Con sesión real no se puede mandar un menú de ejemplo: los IDs no existen en la base.
+    if (usaServidor && !productosReales) {
+      return {
+        exito: false,
+        error: 'El menú todavía no está sincronizado con el servidor. Recarga la app e inténtalo de nuevo.',
+      };
+    }
+
+    if (usaServidor && idMesa && idUsuario) {
+      try {
+        const supabase = obtener_supabase();
+        // El precio lo pone la función con el catálogo del servidor, no el teléfono.
+        const detalles = carrito.map((item) => ({
+          id_detalle: generarUuid(),
+          id_producto: item.id_producto,
+          cantidad: item.cantidad,
+          especificaciones: (item.especificaciones || especificacionesGenerales || '').trim(),
+          tiempo_estimado: 15,
+          id_estado: 2, // 2 = en preparación en detalle_comanda
+        }));
+
+        const { resultado, fallo_red } = await con_reintentos(async () =>
+          await supabase.rpc('crear_comanda', {
+            p_id_comanda: idComanda,
+            p_id_mesa: idMesa,
+            p_detalles: detalles,
+          })
+        );
+
+        if (fallo_red) {
+          return { exito: false, error: MENSAJE_SIN_CONEXION };
+        }
+        if (resultado?.error) {
+          console.warn('Error al enviar la comanda a Supabase:', resultado.error);
+          return { exito: false, error: traducirErrorComanda(resultado.error.message ?? '') };
+        }
+
+        // La mesa ya se marcó ocupada en la función; esto actualiza la copia local.
+        await cambiarEstadoMesa(mesaSeleccionada, 'ocupada');
+        limpiarCarrito();
+        await cargarComandas();
+        return { exito: true };
+      } catch (err) {
+        console.warn('Excepción al enviar la comanda a Supabase:', err);
+        return { exito: false, error: MENSAJE_SIN_CONEXION };
+      }
+    }
+
+    // Sin sesión real (modo demo) se conserva el flujo local de siempre.
+    const idMesaLocal = idMesa ?? `mesa-${mesaSeleccionada}`;
 
     const nuevaComanda: Comanda = {
       id_comanda: idComanda,
       id_cafeteria: idCafeteria,
-      id_mesa: idMesa,
+      id_mesa: idMesaLocal,
       num_mesa: mesaSeleccionada,
       id_usuario: usuario?.id_usuario ?? 'usr-2',
       nombre_mesero: usuario?.nombre ?? 'Liz',
@@ -1111,8 +1504,8 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       estado: 'en preparación',
       total,
       fecha_creacion: new Date().toISOString(),
-      detalles: carrito.map((item, idx) => ({
-        id_detalle: `det-${Date.now()}-${idx}`,
+      detalles: carrito.map((item) => ({
+        id_detalle: generarUuid(),
         id_comanda: idComanda,
         id_producto: item.id_producto,
         nombre_producto: item.nombre_producto,
@@ -1133,22 +1526,6 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
 
     // Limpiar carrito
     limpiarCarrito();
-
-    // Sincronizar en segundo plano si Supabase está activo
-    if (supabase_configurado && idCafeteria) {
-      try {
-        const supabase = obtener_supabase();
-        await supabase.from('comanda').insert({
-          id_cafeteria: idCafeteria,
-          id_mesa: idMesa,
-          id_usuario: usuario?.id_usuario,
-          id_estado: 1, // 1 = abierta
-          total,
-        });
-      } catch (err) {
-        console.warn('Error al guardar comanda en Supabase:', err);
-      }
-    }
 
     return { exito: true, comanda: nuevaComanda };
   };
@@ -1213,6 +1590,20 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     );
     setNotificaciones(actualizadas);
     AsyncStorage.setItem(STORAGE_KEY_NOTIFICACIONES, JSON.stringify(actualizadas));
+
+    // También en el servidor, para que el aviso no reaparezca al recargar o en otro teléfono.
+    if (conectado && idUsuario) {
+      obtener_supabase()
+        .from('notificacion')
+        .update({ leida: true })
+        .eq('id_notificacion', id_notificacion)
+        .eq('id_usuario', idUsuario)
+        .then(({ error }) => {
+          if (error) {
+            console.warn('No se pudo marcar la notificación como leída:', error);
+          }
+        });
+    }
   };
 
   return (
