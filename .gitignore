@@ -36,6 +36,9 @@ yarn-error.*
 *.env
 !.env.example
 
+# Cuentas reales del equipo (correos y contraseñas temporales)
+CUENTAS.md
+
 # Credenciales de firma y publicación (EAS, Google Play, App Store)
 credentials.json
 *.keystore
