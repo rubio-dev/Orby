@@ -501,32 +501,9 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   const [comandas, setComandas] = useState<Comanda[]>(COMANDAS_INICIALES);
   const [notificaciones, setNotificaciones] = useState<NotificacionItem[]>(NOTIFICACIONES_INICIALES);
   const [mesaSeleccionada, setMesaSeleccionada] = useState<number>(5);
-  const [carrito, setCarrito] = useState<ItemCarrito[]>([
-    {
-      id_producto: 'prod-4',
-      nombre_producto: 'Chocolate Caliente',
-      precio: 50,
-      cantidad: 1,
-      especificaciones: 'Descripción',
-      imagen_url: 'https://images.unsplash.com/photo-1542990253-0d0f5be5f0ed?w=300&auto=format&fit=crop&q=80',
-    },
-    {
-      id_producto: 'prod-6',
-      nombre_producto: 'Chilaquiles',
-      precio: 120,
-      cantidad: 1,
-      especificaciones: 'Descripción',
-      imagen_url: 'https://images.unsplash.com/photo-1640719028984-5142fa661837?w=300&auto=format&fit=crop&q=80',
-    },
-    {
-      id_producto: 'prod-9',
-      nombre_producto: 'Cheesecake',
-      precio: 50,
-      cantidad: 1,
-      especificaciones: 'Descripción',
-      imagen_url: 'https://images.unsplash.com/photo-1524351199678-941a58a3df50?w=300&auto=format&fit=crop&q=80',
-    },
-  ]);
+  // El carrito arranca vacío: los productos de ejemplo tenían IDs `prod-*` que no
+  // existen en Supabase y hacían fallar el envío con una sesión real.
+  const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
 
   const [colaPendienteMesas, setColaPendienteMesas] = useState<OperacionColaMesa[]>([]);
   const [sincronizandoColaMesas, setSincronizandoColaMesas] = useState<boolean>(false);
