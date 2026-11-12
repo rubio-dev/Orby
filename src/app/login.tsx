@@ -107,14 +107,20 @@ export default function LoginScreen() {
 
           {/* Bienvenida */}
           <View style={estilos.encabezado}>
-            <Text style={[estilos.titulo, { color: colores.text }]}>Bienvenido a Orby</Text>
+            <Text accessibilityRole="header" style={[estilos.titulo, { color: colores.text }]}>
+              Bienvenido a Orby
+            </Text>
             <Text style={[estilos.subtitulo, { color: colores.text_secondary }]}>Tu cafetería en órbita</Text>
           </View>
 
           <View style={estilos.formulario}>
             {/* Mensaje de error */}
             {errorMensaje && (
-              <View style={[estilos.cajaError, { backgroundColor: colores.danger_soft }]}>
+              <View
+                accessibilityRole="alert"
+                accessibilityLiveRegion="assertive"
+                style={[estilos.cajaError, { backgroundColor: colores.danger_soft }]}
+              >
                 <Ionicons name="alert-circle" size={18} color={colores.danger} style={{ marginRight: 6 }} />
                 <Text style={[estilos.errorTexto, { color: colores.danger }]}>{errorMensaje}</Text>
               </View>

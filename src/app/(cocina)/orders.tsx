@@ -66,6 +66,11 @@ export default function CocinaOrdersScreen() {
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => router.push(`/(cocina)/order-detail?id=${item.id_comanda}`)}
+        accessibilityRole="button"
+        accessibilityLabel={`Mesa ${item.num_mesa}, ${productosVisibles.length} productos, ${minutos} minutos de espera, ${
+          tabActual === 'preparacion' ? 'en preparación' : 'listo'
+        }`}
+        accessibilityHint="Abre el detalle de la comanda"
         style={[estilos.tarjetaComanda, { backgroundColor: colores.surface, borderColor: colores.text }]}
       >
         {/* Icono de gorro de chef / cocina */}

@@ -117,6 +117,8 @@ export default function MeseroOrderSummaryScreen() {
                   onPress={() => quitarDelCarrito(item.id_producto)}
                   style={estilos.botonEliminar}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Quitar ${item.nombre_producto} del pedido`}
                 >
                   <Ionicons name="trash-outline" size={20} color={colores.danger} />
                 </TouchableOpacity>
@@ -132,6 +134,8 @@ export default function MeseroOrderSummaryScreen() {
                   onChangeText={(texto) => actualizarEspecificaciones(item.id_producto, texto)}
                   placeholder="Descripción (ej. sin cebolla, salsa aparte)"
                   placeholderTextColor={colores.text_muted}
+                  accessibilityLabel={`Especificaciones de ${item.nombre_producto}`}
+                  accessibilityHint="Escribe instrucciones para cocina"
                   style={[estilos.inputEspecificaciones, { color: colores.text }]}
                 />
               </View>
@@ -140,7 +144,12 @@ export default function MeseroOrderSummaryScreen() {
 
           {/* Línea divisoria y total */}
           <View style={[estilos.seccionTotal, { borderTopColor: colores.text }]}>
-            <View style={estilos.filaTotal}>
+            <View
+              accessible
+              accessibilityLiveRegion="polite"
+              accessibilityLabel={`Total del pedido, ${total} pesos`}
+              style={estilos.filaTotal}
+            >
               <Text style={[estilos.textoTotal, { color: colores.text }]}>Total</Text>
               <Text style={[estilos.montoTotal, { color: colores.text }]}>${total}</Text>
             </View>
@@ -219,7 +228,10 @@ const estilos = StyleSheet.create({
     marginTop: 2,
   },
   botonEliminar: {
-    paddingLeft: espaciado.xs,
+    width: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   seccionEspecificaciones: {
     marginTop: espaciado.sm,

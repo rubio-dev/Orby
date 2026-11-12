@@ -81,6 +81,7 @@ export function MeseroBottomNav({ activa }: MeseroBottomNavProps) {
 
   return (
     <View
+      accessibilityRole="tablist"
       style={[
         estilos.barra,
         {
@@ -100,6 +101,11 @@ export function MeseroBottomNav({ activa }: MeseroBottomNavProps) {
             activeOpacity={0.7}
             style={estilos.itemTab}
             onPress={tab.onPress}
+            accessibilityRole="tab"
+            accessibilityLabel={
+              tab.badge !== undefined ? `${tab.etiqueta}, ${tab.badge} sin leer` : tab.etiqueta
+            }
+            accessibilityState={{ selected: estaSeleccionada }}
           >
             <View style={{ position: 'relative' }}>
               <Ionicons
@@ -139,6 +145,7 @@ const estilos = StyleSheet.create({
   },
   itemTab: {
     flex: 1,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: espaciado.xs,

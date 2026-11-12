@@ -20,6 +20,7 @@ type CustomButtonProps = {
   estilo?: StyleProp<ViewStyle>;
   estiloTexto?: StyleProp<TextStyle>;
   iconoIzquierda?: React.ReactNode;
+  accessibilityHint?: string;
 };
 
 export function CustomButton({
@@ -31,6 +32,7 @@ export function CustomButton({
   estilo,
   estiloTexto,
   iconoIzquierda,
+  accessibilityHint,
 }: CustomButtonProps) {
   const { colores } = useTema();
 
@@ -63,6 +65,10 @@ export function CustomButton({
       activeOpacity={0.8}
       onPress={onPress}
       disabled={deshabilitado || cargando}
+      accessibilityRole="button"
+      accessibilityLabel={cargando ? `${titulo}, cargando` : titulo}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: deshabilitado || cargando, busy: cargando }}
       style={[
         estilos.boton,
         {

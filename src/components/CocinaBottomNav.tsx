@@ -82,6 +82,7 @@ export function CocinaBottomNav({ activa }: CocinaBottomNavProps) {
 
   return (
     <View
+      accessibilityRole="tablist"
       style={[
         estilos.barra,
         {
@@ -101,6 +102,9 @@ export function CocinaBottomNav({ activa }: CocinaBottomNavProps) {
             activeOpacity={0.7}
             style={estilos.itemTab}
             onPress={tab.onPress}
+            accessibilityRole="tab"
+            accessibilityLabel={tab.etiqueta}
+            accessibilityState={{ selected: estaSeleccionada }}
           >
             <Ionicons
               name={estaSeleccionada ? tab.iconoActivo : tab.icono}
@@ -133,6 +137,7 @@ const estilos = StyleSheet.create({
   },
   itemTab: {
     flex: 1,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: espaciado.xs,

@@ -179,6 +179,12 @@ export default function CocinaOrderDetailScreen() {
                   activeOpacity={0.8}
                   disabled={!sePuedeCambiar}
                   onPress={() => setIdDetalleParaTiempo(detalle.id_detalle)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Tiempo estimado de ${detalle.nombre_producto}, ${
+                    detalle.tiempo_estimado ? `${detalle.tiempo_estimado} minutos` : 'sin asignar'
+                  }`}
+                  accessibilityHint="Abre las opciones de tiempo estimado"
+                  accessibilityState={{ disabled: !sePuedeCambiar }}
                   style={[estilos.cajaTiempoEstimado, { borderColor: colores.text }]}
                 >
                   <Text style={[estilos.labelTiempoEstimado, { color: colores.text }]}>
@@ -199,6 +205,8 @@ export default function CocinaOrderDetailScreen() {
                 <TouchableOpacity
                   activeOpacity={0.8}
                   disabled={!sePuedeCambiar}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Marcar ${detalle.nombre_producto} en preparación`}
                   accessibilityState={{ selected: enPreparacion, disabled: !sePuedeCambiar }}
                   onPress={() =>
                     cambiarEstadoProducto(comanda.id_comanda, detalle.id_detalle, ESTADO_DETALLE.en_preparacion)
@@ -227,6 +235,8 @@ export default function CocinaOrderDetailScreen() {
                 <TouchableOpacity
                   activeOpacity={0.8}
                   disabled={!sePuedeCambiar}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Marcar ${detalle.nombre_producto} como listo`}
                   accessibilityState={{ selected: estaListo, disabled: !sePuedeCambiar }}
                   onPress={() =>
                     cambiarEstadoProducto(comanda.id_comanda, detalle.id_detalle, ESTADO_DETALLE.listo)

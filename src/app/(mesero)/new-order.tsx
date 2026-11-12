@@ -72,6 +72,11 @@ export default function MeseroNewOrderScreen() {
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={() => handleAgregarProducto(item)}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.nombre_producto}, ${item.precio} pesos${
+          enCarrito ? `, ${enCarrito.cantidad} en el carrito` : ''
+        }`}
+        accessibilityHint="Agrega una unidad de este producto al pedido"
         style={[estilos.tarjetaProducto, { backgroundColor: colores.surface, borderColor: colores.text }]}
       >
         <View style={estilos.imagenContenedor}>
@@ -123,6 +128,11 @@ export default function MeseroNewOrderScreen() {
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => setModalMesaAbierto(true)}
+          accessibilityRole="button"
+          accessibilityLabel={
+            mesaSeleccionada > 0 ? `Mesa seleccionada, ${mesaSeleccionada}` : 'Selecciona una mesa'
+          }
+          accessibilityHint="Abre la lista de mesas"
           style={[estilos.selectorMesa, { backgroundColor: colores.surface, borderColor: colores.text }]}
         >
           <Text style={[estilos.textoMesa, { color: colores.text }]}>
@@ -165,6 +175,8 @@ export default function MeseroNewOrderScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleIrAlResumen}
+            accessibilityRole="button"
+            accessibilityLabel={`Revisar pedido, ${cantidadTotalEnCarrito} productos`}
             style={[estilos.botonAgregarPedido, { backgroundColor: colores.primary }]}
           >
             <Text style={[estilos.textoBotonAgregar, { color: colores.on_primary }]}>Agregar pedido</Text>
@@ -173,6 +185,8 @@ export default function MeseroNewOrderScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleIrAlResumen}
+            accessibilityRole="button"
+            accessibilityLabel={`Ver carrito, ${cantidadTotalEnCarrito} productos`}
             style={[estilos.botonCarrito, { backgroundColor: colores.primary }]}
           >
             <Ionicons name="cart" size={28} color={colores.on_primary} />
@@ -197,14 +211,23 @@ export default function MeseroNewOrderScreen() {
           activeOpacity={1}
           onPress={() => setModalMesaAbierto(false)}
         >
-          <View style={[estilos.modalContenido, { backgroundColor: colores.surface }]}>
-            <Text style={[tipografia.titulo, { color: colores.text, marginBottom: espaciado.md }]}>
+          <View
+            accessibilityViewIsModal
+            style={[estilos.modalContenido, { backgroundColor: colores.surface }]}
+          >
+            <Text
+              accessibilityRole="header"
+              style={[tipografia.titulo, { color: colores.text, marginBottom: espaciado.md }]}
+            >
               Seleccionar mesa
             </Text>
             <View style={estilos.gridMesasModal}>
               {mesas.map((m) => (
                 <TouchableOpacity
                   key={m.num_mesa}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Mesa ${m.num_mesa}, ${m.estado}`}
+                  accessibilityState={{ selected: m.num_mesa === mesaSeleccionada }}
                   style={[
                     estilos.itemMesaModal,
                     m.num_mesa === mesaSeleccionada

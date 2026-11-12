@@ -26,6 +26,12 @@ export default function MeseroNotificationsScreen() {
       onPress={() => {
         marcarNotificacionLeida(item.id_notificacion);
       }}
+      accessibilityRole="button"
+      accessibilityLabel={`Pedido listo, mesa ${item.num_mesa}, ${item.tiempo}${
+        item.leida ? ', leída' : ', sin leer'
+      }`}
+      accessibilityHint={item.leida ? undefined : 'Marca la notificación como leída'}
+      accessibilityState={{ selected: item.leida }}
       style={[
         estilos.tarjeta,
         {

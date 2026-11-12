@@ -31,7 +31,13 @@ export default function MeseroMenuViewScreen() {
   );
 
   const renderItem = ({ item }: { item: Producto }) => (
-    <View style={[estilos.tarjeta, { backgroundColor: colores.surface, borderColor: colores.text }]}>
+    <View
+      accessible
+      accessibilityLabel={`${item.nombre_producto}, ${item.precio} pesos, ${
+        item.descripcion || 'sin descripción'
+      }`}
+      style={[estilos.tarjeta, { backgroundColor: colores.surface, borderColor: colores.text }]}
+    >
       <View style={estilos.imagenContenedor}>
         {item.imagen_url ? (
           <Image

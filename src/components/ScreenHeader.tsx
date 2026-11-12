@@ -37,6 +37,9 @@ export function ScreenHeader({
           onPress={handleBack}
           style={estilos.botonAtras}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Volver"
+          accessibilityHint="Regresa a la pantalla anterior"
         >
           <Ionicons name="arrow-back" size={28} color={colores.text} />
         </TouchableOpacity>
@@ -44,7 +47,10 @@ export function ScreenHeader({
         <View style={estilos.espaciador} />
       )}
 
-      <Text style={[tipografia.titulo, estilos.titulo, { color: colores.text }]}>
+      <Text
+        accessibilityRole="header"
+        style={[tipografia.titulo, estilos.titulo, { color: colores.text }]}
+      >
         {titulo}
       </Text>
 

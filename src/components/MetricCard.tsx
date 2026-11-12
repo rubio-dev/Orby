@@ -21,8 +21,20 @@ export function MetricCard({
 }: MetricCardProps) {
   const { colores } = useTema();
 
+  const etiquetaAccesible = [
+    titulo.replace(/\n/g, ' '),
+    `${valor}${sufijo ? ` ${sufijo}` : ''}`,
+    cambioPorcentual !== undefined
+      ? `${cambioPorcentual >= 0 ? 'subió' : 'bajó'} ${Math.abs(cambioPorcentual)} por ciento`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
   return (
     <View
+      accessible
+      accessibilityLabel={etiquetaAccesible}
       style={[
         estilos.tarjeta,
         {

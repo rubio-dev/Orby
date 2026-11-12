@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import {
   Platform,
   StyleSheet,
@@ -36,16 +36,23 @@ export function CustomInput({
   ...props
 }: CustomInputProps) {
   const { colores } = useTema();
+  const idCampo = useId();
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   // Si el campo está seleccionado (escribiendo); se usa para pintar el borde verde
   const [enfocado, setEnfocado] = useState(false);
 
   const esCampoSeguro = esContrasena && !mostrarContrasena;
+  const etiquetaAccesible = label
+    ? `${label}${obligatorio ? ', campo obligatorio' : ''}${error ? `, error: ${error}` : ''}`
+    : undefined;
 
   return (
     <View style={estilos.contenedor}>
       {label && (
-        <Text style={[tipografia.etiqueta, estilos.label, { color: colores.text }]}>
+        <Text
+          nativeID={`${idCampo}-label`}
+          style={[tipografia.etiqueta, estilos.label, { color: colores.text }]}
+        >
           {label}
           {obligatorio && <Text style={{ color: colores.danger }}> *</Text>}
         </Text>
@@ -84,6 +91,10 @@ export function CustomInput({
             style,
           ]}
           {...props}
+          accessibilityLabel={props.accessibilityLabel ?? etiquetaAccesible}
+          accessibilityLabelledBy={label ? `${idCampo}-label` : undefined}
+          accessibilityHint={error ? `Corrige: ${error}` : props.accessibilityHint}
+          accessibilityState={{ disabled: props.editable === false }}
           onFocus={(evento) => {
             setEnfocado(true);
             onFocus?.(evento); // Respeta el onFocus que mande la pantalla, si existe
@@ -99,6 +110,10 @@ export function CustomInput({
             activeOpacity={0.7}
             style={estilos.iconoAccion}
             onPress={() => setMostrarContrasena(!mostrarContrasena)}
+            accessibilityRole="button"
+            accessibilityLabel={mostrarContrasena ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            accessibilityState={{ selected: mostrarContrasena }}
+            hitSlop={8}
           >
             <Ionicons
               name={mostrarContrasena ? 'eye-outline' : 'eye-off-outline'}
@@ -114,6 +129,10 @@ export function CustomInput({
             style={estilos.iconoAccion}
             onPress={onPressIconoDerecha}
             disabled={!onPressIconoDerecha}
+            accessibilityRole="button"
+            accessibilityLabel="Acción del campo"
+            accessibilityState={{ disabled: !onPressIconoDerecha }}
+            hitSlop={8}
           >
             <Ionicons name={iconoDerecha} size={22} color={colores.text} />
           </TouchableOpacity>
@@ -121,7 +140,11 @@ export function CustomInput({
       </View>
 
       {error ? (
-        <Text style={[tipografia.micro, { color: colores.danger, marginTop: espaciado.xxs }]}>
+        <Text
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          style={[tipografia.micro, { color: colores.danger, marginTop: espaciado.xxs }]}
+        >
           {error}
         </Text>
       ) : null}
@@ -154,7 +177,9 @@ const estilos = StyleSheet.create({
   },
   iconoAccion: {
     position: 'absolute',
-    right: 14,
+    right: 0,
+    width: 44,
+    minHeight: 44,
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',

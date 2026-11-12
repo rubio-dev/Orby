@@ -63,6 +63,15 @@ export default function MeseroTablesScreen() {
                 key={mesa.id_mesa}
                 activeOpacity={0.8}
                 onPress={() => setMesaParaModificar(mesa)}
+                accessibilityRole="button"
+                accessibilityLabel={`Mesa ${mesa.num_mesa}, ${mesa.estado}`}
+                accessibilityHint={
+                  mesa.estado === 'libre'
+                    ? 'Toca para tomar pedido o cambiar el estado'
+                    : mesa.estado === 'ocupada'
+                      ? 'Toca para agregar productos o cambiar el estado'
+                      : 'Toca para cambiar el estado de la mesa'
+                }
                 style={[
                   estilos.tarjetaMesa,
                   {
@@ -94,7 +103,10 @@ export default function MeseroTablesScreen() {
           activeOpacity={1}
           onPress={() => setMesaParaModificar(null)}
         >
-          <View style={[estilos.modalPopup, { backgroundColor: colores.primary, shadowColor: colores.shadow }]}>
+          <View
+            accessibilityViewIsModal
+            style={[estilos.modalPopup, { backgroundColor: colores.primary, shadowColor: colores.shadow }]}
+          >
             <Text style={[estilos.modalTitulo, { color: colores.on_primary }]}>
               Mesa {mesaParaModificar?.num_mesa}
             </Text>
@@ -103,6 +115,8 @@ export default function MeseroTablesScreen() {
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => handleSeleccionarEstado('ocupada')}
+              accessibilityRole="button"
+              accessibilityLabel="Marcar mesa como ocupada"
               style={[estilos.opcionEstadoBoton, { borderColor: colores.on_primary }]}
             >
               <View style={estilos.iconoEstadoBox}>
@@ -115,6 +129,8 @@ export default function MeseroTablesScreen() {
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => handleSeleccionarEstado('apartada')}
+              accessibilityRole="button"
+              accessibilityLabel="Marcar mesa como apartada"
               style={[estilos.opcionEstadoBoton, { borderColor: colores.on_primary }]}
             >
               <View style={estilos.iconoEstadoBox}>
@@ -127,6 +143,8 @@ export default function MeseroTablesScreen() {
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => handleSeleccionarEstado('libre')}
+              accessibilityRole="button"
+              accessibilityLabel="Marcar mesa como libre"
               style={[estilos.opcionEstadoBoton, { borderColor: colores.on_primary }]}
             >
               <View style={estilos.iconoEstadoBox}>
@@ -139,6 +157,8 @@ export default function MeseroTablesScreen() {
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={handleTomarPedidoMesa}
+              accessibilityRole="button"
+              accessibilityLabel={`Tomar pedido en la mesa ${mesaParaModificar?.num_mesa ?? ''}`}
               style={[estilos.botonTomarPedidoDirecto, { backgroundColor: colores.surface }]}
             >
               <Ionicons name="clipboard-outline" size={20} color={colores.primary} />

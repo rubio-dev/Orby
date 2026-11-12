@@ -67,6 +67,9 @@ export default function MeseroHomeScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => router.push('/(mesero)/new-order')}
+            accessibilityRole="button"
+            accessibilityLabel="Tomar pedido"
+            accessibilityHint="Elige mesa o pedido para llevar y arma la comanda"
             style={[estilos.botonAccion, { backgroundColor: colores.primary }]}
           >
             <Ionicons name="clipboard-outline" size={28} color={colores.on_primary} style={estilos.iconoBoton} />
@@ -76,6 +79,9 @@ export default function MeseroHomeScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => router.push('/(mesero)/tables')}
+            accessibilityRole="button"
+            accessibilityLabel="Ver mesas"
+            accessibilityHint="Muestra el estado de todas las mesas"
             style={[estilos.botonAccion, { backgroundColor: colores.primary }]}
           >
             <Ionicons name="grid-outline" size={28} color={colores.on_primary} style={estilos.iconoBoton} />
@@ -85,6 +91,9 @@ export default function MeseroHomeScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => router.push('/(mesero)/view-menu' as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Ver menú"
+            accessibilityHint="Consulta los productos disponibles"
             style={[estilos.botonAccion, { backgroundColor: colores.primary }]}
           >
             <Ionicons name="restaurant-outline" size={28} color={colores.on_primary} style={estilos.iconoBoton} />

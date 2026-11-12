@@ -24,7 +24,7 @@ export function SegmentedTabs<T extends string>({
   const { colores } = useTema();
 
   return (
-    <View style={estilos.contenedor}>
+    <View style={estilos.contenedor} accessibilityRole="tablist">
       {opciones.map((opcion) => {
         const estaActiva = seleccionada === opcion.id;
 
@@ -33,6 +33,9 @@ export function SegmentedTabs<T extends string>({
             key={opcion.id}
             activeOpacity={0.8}
             onPress={() => alSeleccionar(opcion.id)}
+            accessibilityRole="tab"
+            accessibilityLabel={opcion.etiqueta}
+            accessibilityState={{ selected: estaActiva }}
             style={[
               estilos.boton,
               tipo === 'tabs' ? estilos.tabGrande : estilos.pill,
@@ -73,7 +76,7 @@ const estilos = StyleSheet.create({
   },
   pill: {
     flex: 1,
-    height: 40,
+    minHeight: 44,
     borderRadius: radios.pastilla,
     paddingHorizontal: espaciado.md,
   },

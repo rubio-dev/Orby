@@ -17,6 +17,9 @@ export function UserHeader({ nombre, rol, tamanoAvatar = 100 }: UserHeaderProps)
     <View style={estilos.contenedor}>
       {/* Círculo de Avatar */}
       <View
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
         style={[
           estilos.avatarContainer,
           {
@@ -31,7 +34,10 @@ export function UserHeader({ nombre, rol, tamanoAvatar = 100 }: UserHeaderProps)
       </View>
 
       {/* Saludo y Nombre */}
-      <Text style={[tipografia.titulo, estilos.saludo, { color: colores.text }]}>
+      <Text
+        accessibilityRole="header"
+        style={[tipografia.titulo, estilos.saludo, { color: colores.text }]}
+      >
         Hola, {nombre}
       </Text>
 
