@@ -87,6 +87,31 @@ VALUES
   ('c0000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', 'Postres')
 ON CONFLICT ("id_categoria") DO NOTHING;
 
+-- Productos demo del menú (mismos nombres que el diseño)
+-- Sin productos el mesero abre el menú vacío y no se puede probar el flujo de comandas.
+INSERT INTO "public"."producto" (
+  "id_producto",
+  "id_cafeteria",
+  "id_categoria",
+  "nombre_producto",
+  "descripcion",
+  "precio",
+  "imagen_url",
+  "estado"
+)
+VALUES
+  ('a0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', 'Café Americano', 'Espresso doble rebajado con agua caliente.', 60, NULL, true),
+  ('a0000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', 'Latte', 'Espresso con leche vaporizada y microespuma.', 70, NULL, true),
+  ('a0000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', 'Frappé', 'Bebida helada cremosa a base de café.', 65, NULL, true),
+  ('a0000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', 'Chocolate Caliente', 'Chocolate con canela y leche entera.', 50, NULL, true),
+  ('a0000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000002', 'Chilaquiles', 'Totopos con salsa verde o roja, crema y queso.', 120, NULL, true),
+  ('a0000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000002', 'Hamburguesa', 'Carne de res, queso, lechuga y tomate.', 110, NULL, true),
+  ('a0000000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000002', 'Ensalada César', 'Lechuga, crutones, parmesano y aderezo César.', 95, NULL, true),
+  ('a0000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000003', 'Cheesecake', 'Pastel de queso con base de galleta.', 50, NULL, true),
+  ('a0000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000003', 'Brownie', 'Brownie de chocolate con nuez.', 45, NULL, true),
+  ('a0000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000003', 'Flan', 'Flan casero con caramelo.', 40, NULL, true)
+ON CONFLICT ("id_producto") DO NOTHING;
+
 -- Usuario Administrador en Supabase Auth y en public.usuario
 INSERT INTO auth.users (
   instance_id,
@@ -106,7 +131,7 @@ INSERT INTO auth.users (
   'authenticated',
   'authenticated',
   'admin@orby.com',
-  crypt('admin123', gen_salt('bf')),
+  extensions.crypt('admin123', extensions.gen_salt('bf')),
   now(),
   '{"provider":"email","providers":["email"]}',
   '{"rol":"administrador","nombre":"Gael Guzmán","nombre_cafeteria":"Orby Cafetería"}',
@@ -141,7 +166,7 @@ INSERT INTO auth.users (
   'authenticated',
   'authenticated',
   'mesero@orby.com',
-  crypt('mesero123', gen_salt('bf')),
+  extensions.crypt('mesero123', extensions.gen_salt('bf')),
   now(),
   '{"provider":"email","providers":["email"]}',
   '{"rol":"mesero","nombre":"Liz Morales","id_cafeteria":"00000000-0000-0000-0000-000000000001"}',
@@ -176,7 +201,7 @@ INSERT INTO auth.users (
   'authenticated',
   'authenticated',
   'cocina@orby.com',
-  crypt('cocina123', gen_salt('bf')),
+  extensions.crypt('cocina123', extensions.gen_salt('bf')),
   now(),
   '{"provider":"email","providers":["email"]}',
   '{"rol":"cocina","nombre":"Emilio Sánchez","id_cafeteria":"00000000-0000-0000-0000-000000000001"}',
