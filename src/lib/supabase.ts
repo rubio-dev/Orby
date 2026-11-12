@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'; // Almacenamiento persistente de la sesión en el teléfono
-import { createClient, processLock, type SupabaseClient } from '@supabase/supabase-js'; // Cliente de Supabase y candado de sesión para un solo proceso
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'; // Cliente de Supabase
 import { AppState, Platform } from 'react-native'; // Estado de la app (primer o segundo plano) y plataforma actual
 
 import { supabase_configurado, supabase_llave, supabase_url } from '@/lib/env'; // Datos de conexión leídos de .env
@@ -42,7 +42,6 @@ export function obtener_supabase() {
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false, // En móvil la sesión no llega por URL
-      lock: processLock,
     },
   });
 

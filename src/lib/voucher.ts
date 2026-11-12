@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 
 import type { Comanda, MetodoPago } from '@/types';
 
@@ -105,6 +106,31 @@ export function generarHtmlVoucher(
 }
 
 export async function compartirVoucherPdf(html: string, folio: string) {
+  // En web, expo-print no devuelve el archivo PDF: abre una pestaña con el
+  // comprobante para imprimir o guardar. Así evitamos el error de `base64`.
+  if (Platform.OS === 'web') {
+    const ventana = window.open('', '_blank');
+    if (ventana) {
+      ventana.document.open();
+      ventana.document.write(html);
+      ventana.document.close();
+      ventana.focus();
+      // Dar tiempo a que el navegador termine de pintar antes de abrir la impresión.
+      setTimeout(() => ventana.print(), 350);
+      return;
+    }
+
+    // Si el navegador bloquea la pestaña, se descarga el HTML como respaldo.
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = `Voucher_${folio}.html`;
+    enlace.click();
+    URL.revokeObjectURL(url);
+    return;
+  }
+
   const { base64, uri: tempUri } = await Print.printToFileAsync({ html, base64: true });
 
   const baseDir = FileSystem.cacheDirectory || FileSystem.documentDirectory || '';
@@ -127,6 +153,5 @@ export async function compartirVoucherPdf(html: string, folio: string) {
     return;
   }
 
-  // Sin hoja de compartir (por ejemplo, algunos navegadores), se abre la impresión.
   await Print.printAsync({ html });
 }

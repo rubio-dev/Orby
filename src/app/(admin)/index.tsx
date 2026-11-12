@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -249,6 +250,26 @@ export default function AdminHomeScreen() {
         tituloPeriodo,
         fechaEmision,
       });
+
+      // En web, expo-print abre la impresión del documento en una pestaña.
+      if (Platform.OS === 'web') {
+        const ventana = window.open('', '_blank');
+        if (!ventana) {
+          mostrarAviso(
+            'Ventana bloqueada',
+            'Permite las ventanas emergentes para imprimir o guardar el reporte.',
+            [{ text: 'Aceptar' }]
+          );
+          return;
+        }
+        ventana.document.open();
+        ventana.document.write(html);
+        ventana.document.close();
+        ventana.focus();
+        setTimeout(() => ventana.print(), 350);
+        setModalReporteVisible(false);
+        return;
+      }
 
       const { base64, uri: tempUri } = await Print.printToFileAsync({
         html,
