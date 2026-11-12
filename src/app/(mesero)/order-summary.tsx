@@ -108,8 +108,8 @@ export default function MeseroOrderSummaryScreen() {
                       ${item.precio * item.cantidad}
                     </Text>
                   </View>
-                  <Text style={[estilos.subtexto, { color: colores.text_muted }]}>
-                    Descripción
+                  <Text style={[estilos.subtexto, { color: colores.text_muted }]} numberOfLines={2}>
+                    {item.descripcion || 'Sin descripción'}
                   </Text>
                 </View>
 

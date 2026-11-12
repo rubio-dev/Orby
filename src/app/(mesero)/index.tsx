@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -23,9 +23,28 @@ export default function MeseroHomeScreen() {
   const { usuario } = useAuth();
   const { mesas, comandas } = useOrders();
 
-  const nombreMesero = usuario?.nombre ?? 'Liz';
+  const [ahora, setAhora] = useState(() => Date.now());
+  useEffect(() => {
+    const intervalo = setInterval(() => setAhora(Date.now()), 30000);
+    return () => clearInterval(intervalo);
+  }, []);
+
+  const nombreMesero = usuario?.nombre ?? 'Mesero';
   const mesasActivas = mesas.filter((m) => m.estado === 'ocupada').length;
   const pedidosHoy = comandas.length;
+  const abiertas = comandas.filter((c) => c.id_estado === 1);
+  const tiempoPromedio =
+    abiertas.length === 0
+      ? 0
+      : Math.max(
+          0,
+          Math.round(
+            abiertas.reduce(
+              (total, c) => total + (ahora - new Date(c.fecha_creacion).getTime()) / 60000,
+              0
+            ) / abiertas.length
+          )
+        );
 
   return (
     <SafeAreaView style={[estilos.pantalla, { backgroundColor: colores.background }]} edges={['top']}>
@@ -38,9 +57,9 @@ export default function MeseroHomeScreen() {
 
         {/* Indicadores operativos */}
         <View style={estilos.filaIndicadores}>
-          <MetricCard titulo={'Mesas activas'} valor={mesasActivas || 10} anchoFijo />
-          <MetricCard titulo={'Pedidos hoy'} valor={pedidosHoy || 22} anchoFijo />
-          <MetricCard titulo={'Tiempo\npromedio'} valor={12} sufijo="min" anchoFijo />
+          <MetricCard titulo={'Mesas activas'} valor={mesasActivas} anchoFijo />
+          <MetricCard titulo={'Pedidos hoy'} valor={pedidosHoy} anchoFijo />
+          <MetricCard titulo={'Tiempo\npromedio'} valor={tiempoPromedio} sufijo="min" anchoFijo />
         </View>
 
         {/* Botones de acción rápida del mesero (Página 3) */}

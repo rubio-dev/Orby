@@ -28,8 +28,6 @@ import { obtener_supabase } from '@/lib/supabase';
 import type { Comanda, EstadoMesa, Mesa } from '@/types';
 
 const STORAGE_KEY_MESAS = '@orby_mesas';
-const STORAGE_KEY_COMANDAS = '@orby_comandas';
-const STORAGE_KEY_NOTIFICACIONES = '@orby_notificaciones';
 
 const claveColaMesas = (idCafeteria: string) => `@orby_cola_mesas_${idCafeteria}`;
 
@@ -90,263 +88,6 @@ export type NotificacionItem = {
   leida: boolean;
   fecha: string;
 };
-
-// 11 mesas iniciales según la captura de la página 7 y 8
-const MESAS_INICIALES: Mesa[] = [
-  { id_mesa: 'mesa-1', num_mesa: 1, id_estado: 1, estado: 'libre' },
-  { id_mesa: 'mesa-2', num_mesa: 2, id_estado: 1, estado: 'libre' },
-  { id_mesa: 'mesa-3', num_mesa: 3, id_estado: 3, estado: 'apartada' },
-  { id_mesa: 'mesa-4', num_mesa: 4, id_estado: 1, estado: 'libre' },
-  { id_mesa: 'mesa-5', num_mesa: 5, id_estado: 2, estado: 'ocupada' },
-  { id_mesa: 'mesa-6', num_mesa: 6, id_estado: 1, estado: 'libre' },
-  { id_mesa: 'mesa-7', num_mesa: 7, id_estado: 3, estado: 'apartada' },
-  { id_mesa: 'mesa-8', num_mesa: 8, id_estado: 1, estado: 'libre' },
-  { id_mesa: 'mesa-9', num_mesa: 9, id_estado: 1, estado: 'libre' },
-  { id_mesa: 'mesa-10', num_mesa: 10, id_estado: 2, estado: 'ocupada' },
-  { id_mesa: 'mesa-11', num_mesa: 11, id_estado: 1, estado: 'libre' },
-];
-
-// Comandas iniciales según las capturas de página 11 y 12
-const COMANDAS_INICIALES: Comanda[] = [
-  {
-    id_comanda: 'ord-1',
-    id_mesa: 'mesa-4',
-    num_mesa: 4,
-    id_usuario: 'usr-2',
-    nombre_mesero: 'Liz',
-    id_estado: 1, // 1=abierta (en preparación según detalles)
-    estado: 'en preparación',
-    total: 220,
-    fecha_creacion: new Date(Date.now() - 2 * 60000).toISOString(),
-    detalles: [
-      {
-        id_detalle: 'det-1',
-        id_comanda: 'ord-1',
-        id_producto: 'prod-4',
-        nombre_producto: 'Chocolate Caliente',
-        cantidad: 1,
-        precio_unitario: 50,
-        tiempo_estimado_minutos: 5,
-        id_estado: 2, // en preparación
-      },
-      {
-        id_detalle: 'det-2',
-        id_comanda: 'ord-1',
-        id_producto: 'prod-6',
-        nombre_producto: 'Chilaquiles',
-        cantidad: 1,
-        precio_unitario: 120,
-        tiempo_estimado_minutos: 20,
-        especificaciones: 'Sin cebolla',
-        id_estado: 2,
-      },
-      {
-        id_detalle: 'det-3',
-        id_comanda: 'ord-1',
-        id_producto: 'prod-9',
-        nombre_producto: 'Cheesecake',
-        cantidad: 1,
-        precio_unitario: 50,
-        tiempo_estimado_minutos: 5,
-        id_estado: 3, // listo
-      },
-    ],
-  },
-  {
-    id_comanda: 'ord-2',
-    id_mesa: 'mesa-5',
-    num_mesa: 5,
-    id_usuario: 'usr-2',
-    nombre_mesero: 'Liz',
-    id_estado: 1,
-    estado: 'en preparación',
-    total: 200,
-    fecha_creacion: new Date(Date.now() - 2 * 60000).toISOString(),
-    detalles: [
-      {
-        id_detalle: 'det-4',
-        id_comanda: 'ord-2',
-        id_producto: 'prod-2',
-        nombre_producto: 'Latte',
-        cantidad: 1,
-        precio_unitario: 70,
-        id_estado: 2,
-      },
-      {
-        id_detalle: 'det-5',
-        id_comanda: 'ord-2',
-        id_producto: 'prod-3',
-        nombre_producto: 'Frappé',
-        cantidad: 2,
-        precio_unitario: 65,
-        id_estado: 2,
-      },
-    ],
-  },
-  {
-    id_comanda: 'ord-3',
-    id_mesa: 'mesa-6',
-    num_mesa: 6,
-    id_usuario: 'usr-2',
-    nombre_mesero: 'Liz',
-    id_estado: 1,
-    estado: 'en preparación',
-    total: 170,
-    fecha_creacion: new Date(Date.now() - 5 * 60000).toISOString(),
-    detalles: [
-      {
-        id_detalle: 'det-6',
-        id_comanda: 'ord-3',
-        id_producto: 'prod-7',
-        nombre_producto: 'Pasta pesto',
-        cantidad: 1,
-        precio_unitario: 110,
-        id_estado: 2,
-      },
-      {
-        id_detalle: 'det-7',
-        id_comanda: 'ord-3',
-        id_producto: 'prod-5',
-        nombre_producto: 'Licuado de fresa',
-        cantidad: 1,
-        precio_unitario: 60,
-        id_estado: 2,
-      },
-    ],
-  },
-  {
-    id_comanda: 'ord-4',
-    id_mesa: 'mesa-7',
-    num_mesa: 7,
-    id_usuario: 'usr-2',
-    nombre_mesero: 'Liz',
-    id_estado: 1,
-    estado: 'en preparación',
-    total: 280,
-    fecha_creacion: new Date(Date.now() - 10 * 60000).toISOString(),
-    detalles: [
-      {
-        id_detalle: 'det-8',
-        id_comanda: 'ord-4',
-        id_producto: 'prod-7',
-        nombre_producto: 'Pasta pesto',
-        cantidad: 2,
-        precio_unitario: 110,
-        id_estado: 2,
-      },
-      {
-        id_detalle: 'det-9',
-        id_comanda: 'ord-4',
-        id_producto: 'prod-5',
-        nombre_producto: 'Licuado de fresa',
-        cantidad: 1,
-        precio_unitario: 60,
-        id_estado: 2,
-      },
-    ],
-  },
-  {
-    id_comanda: 'ord-5',
-    id_mesa: 'mesa-8',
-    num_mesa: 8,
-    id_usuario: 'usr-2',
-    nombre_mesero: 'Liz',
-    id_estado: 1,
-    estado: 'en preparación',
-    total: 510,
-    fecha_creacion: new Date(Date.now() - 15 * 60000).toISOString(),
-    detalles: [
-      {
-        id_detalle: 'det-10',
-        id_comanda: 'ord-5',
-        id_producto: 'prod-8',
-        nombre_producto: 'Burritos de machaca',
-        cantidad: 3,
-        precio_unitario: 90,
-        id_estado: 2,
-      },
-      {
-        id_detalle: 'det-11',
-        id_comanda: 'ord-5',
-        id_producto: 'prod-5',
-        nombre_producto: 'Licuados',
-        cantidad: 4,
-        precio_unitario: 60,
-        id_estado: 2,
-      },
-    ],
-  },
-  {
-    id_comanda: 'ord-6',
-    id_mesa: 'mesa-9',
-    num_mesa: 9,
-    id_usuario: 'usr-2',
-    nombre_mesero: 'Liz',
-    id_estado: 1,
-    estado: 'en preparación',
-    total: 460,
-    fecha_creacion: new Date(Date.now() - 16 * 60000).toISOString(),
-    detalles: [
-      {
-        id_detalle: 'det-12',
-        id_comanda: 'ord-6',
-        id_producto: 'prod-8',
-        nombre_producto: 'Burritos de machaca',
-        cantidad: 3,
-        precio_unitario: 90,
-        id_estado: 2,
-      },
-      {
-        id_detalle: 'det-13',
-        id_comanda: 'ord-6',
-        id_producto: 'prod-5',
-        nombre_producto: 'Licuados',
-        cantidad: 2,
-        precio_unitario: 60,
-        id_estado: 2,
-      },
-      {
-        id_detalle: 'det-14',
-        id_comanda: 'ord-6',
-        id_producto: 'prod-2',
-        nombre_producto: 'Latte',
-        cantidad: 1,
-        precio_unitario: 70,
-        id_estado: 2,
-      },
-    ],
-  },
-  {
-    id_comanda: 'ord-7',
-    id_mesa: 'mesa-10',
-    num_mesa: 10,
-    id_usuario: 'usr-2',
-    nombre_mesero: 'Liz',
-    id_estado: 1,
-    estado: 'listo',
-    total: 120,
-    fecha_creacion: new Date(Date.now() - 25 * 60000).toISOString(),
-    detalles: [
-      {
-        id_detalle: 'det-15',
-        id_comanda: 'ord-7',
-        id_producto: 'prod-1',
-        nombre_producto: 'Café Americano',
-        cantidad: 2,
-        precio_unitario: 60,
-        id_estado: 3,
-      },
-    ],
-  },
-];
-
-// Notificaciones iniciales de pedidos listos según página 4
-const NOTIFICACIONES_INICIALES: NotificacionItem[] = [
-  { id_notificacion: 'not-1', num_mesa: 5, tiempo: 'hace 1 min', leida: false, fecha: new Date().toISOString() },
-  { id_notificacion: 'not-2', num_mesa: 6, tiempo: 'hace 1 min', leida: false, fecha: new Date().toISOString() },
-  { id_notificacion: 'not-3', num_mesa: 8, tiempo: 'hace 2 min', leida: true, fecha: new Date().toISOString() },
-  { id_notificacion: 'not-4', num_mesa: 10, tiempo: 'hace 5 min', leida: true, fecha: new Date().toISOString() },
-];
 
 // Medianoche de hoy en la hora del teléfono: el inicio solo cuenta los pedidos del día.
 function inicioDeHoyIso() {
@@ -433,6 +174,7 @@ function traducirErrorComanda(mensaje: string) {
 export type ItemCarrito = {
   id_producto: string;
   nombre_producto: string;
+  descripcion?: string;
   precio: number;
   cantidad: number;
   especificaciones?: string;
@@ -462,9 +204,6 @@ export type OrdersContextType = {
   actualizarEspecificaciones: (id_producto: string, especificaciones: string) => void;
   limpiarCarrito: () => void;
   enviarComandaACocina: (especificacionesGenerales?: string) => Promise<{ exito: boolean; comanda?: Comanda; error?: string }>;
-  actualizarEstadoDetalle: (id_comanda: string, id_detalle: string, nuevoEstado: number) => Promise<void>;
-  actualizarTiempoEstimadoDetalle: (id_comanda: string, id_detalle: string, minutos: number) => Promise<void>;
-  completarComanda: (id_comanda: string) => Promise<void>;
   marcarNotificacionLeida: (id_notificacion: string) => void;
 };
 
@@ -496,14 +235,20 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   // "conectado" = se puede hablar con Supabase en nombre de este mesero
   const conectado = supabase_configurado && sesionReal && esUuidValido(idCafeteria);
 
-  const [mesas, setMesas] = useState<Mesa[]>(MESAS_INICIALES);
+  const [mesas, setMesas] = useState<Mesa[]>([]);
   const [cargandoMesas, setCargandoMesas] = useState<boolean>(false);
-  const [comandas, setComandas] = useState<Comanda[]>(COMANDAS_INICIALES);
-  const [notificaciones, setNotificaciones] = useState<NotificacionItem[]>(NOTIFICACIONES_INICIALES);
-  const [mesaSeleccionada, setMesaSeleccionada] = useState<number>(5);
-  // El carrito arranca vacío: los productos de ejemplo tenían IDs `prod-*` que no
-  // existen en Supabase y hacían fallar el envío con una sesión real.
+  const [comandas, setComandas] = useState<Comanda[]>([]);
+  const [notificaciones, setNotificaciones] = useState<NotificacionItem[]>([]);
+  const [mesaSeleccionada, setMesaSeleccionada] = useState<number>(0);
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
+
+  // Mesa activa: la que eligió el mesero o, si aún no elige, la primera libre.
+  // Así no hay una mesa hardcodeada y la app funciona con las mesas reales.
+  const mesaElegida =
+    mesas.find((m) => m.num_mesa === mesaSeleccionada) ??
+    mesas.find((m) => m.estado === 'libre') ??
+    mesas[0] ??
+    null;
 
   const [colaPendienteMesas, setColaPendienteMesas] = useState<OperacionColaMesa[]>([]);
   const [sincronizandoColaMesas, setSincronizandoColaMesas] = useState<boolean>(false);
@@ -957,22 +702,16 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function inicializar() {
       try {
-        const [mesasGuardadas, comandasGuardadas, notificacionesGuardadas, colaGuardada] =
-          await Promise.all([
-            AsyncStorage.getItem(storageKeyMesas),
-            AsyncStorage.getItem(STORAGE_KEY_COMANDAS),
-            AsyncStorage.getItem(STORAGE_KEY_NOTIFICACIONES),
-            idCafeteria ? AsyncStorage.getItem(claveColaMesas(idCafeteria)) : Promise.resolve(null),
-          ]);
+        const [mesasGuardadas, colaGuardada] = await Promise.all([
+          AsyncStorage.getItem(storageKeyMesas),
+          idCafeteria ? AsyncStorage.getItem(claveColaMesas(idCafeteria)) : Promise.resolve(null),
+        ]);
 
         if (mesasGuardadas) {
-          setMesas(JSON.parse(mesasGuardadas));
-        } else if (!idCafeteria) {
-          setMesas(MESAS_INICIALES);
+          const mesasLocales = JSON.parse(mesasGuardadas);
+          if (Array.isArray(mesasLocales)) setMesas(mesasLocales);
         }
 
-        if (comandasGuardadas) setComandas(JSON.parse(comandasGuardadas));
-        if (notificacionesGuardadas) setNotificaciones(JSON.parse(notificacionesGuardadas));
         if (colaGuardada) {
           setColaPendienteMesas(JSON.parse(colaGuardada));
         }
@@ -1393,171 +1132,82 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       return { exito: false, error: 'El carrito está vacío' };
     }
 
-    // Al entrar, la sesión tarda un instante en verificarse: no se manda como demo.
-    if (supabase_configurado && estadoSesion === 'verificando') {
+    // Al entrar, la sesión tarda un instante en verificarse.
+    if (estadoSesion === 'verificando') {
       return {
         exito: false,
         error: 'Estamos verificando tu sesión. Inténtalo de nuevo en un momento.',
       };
     }
 
-    const mesaActual = mesas.find((m) => m.num_mesa === mesaSeleccionada);
-    const total = carrito.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
-    const idMesa = mesaActual?.id_mesa ?? null;
-    // Los IDs se generan una sola vez: si la petición se reintenta, la función reconoce
-    // la comanda y los productos y no los duplica.
-    const idComanda = generarUuid();
-    const usaServidor = conectado && esUuidValido(idMesa) && esUuidValido(idUsuario);
-    const productosReales = carrito.every((item) => esUuidValido(item.id_producto));
+    if (!conectado || !idUsuario) {
+      return {
+        exito: false,
+        error: 'No hay una sesión real de Supabase. Vuelve a iniciar sesión.',
+      };
+    }
 
-    // Con sesión real no se cae al modo demo: si la mesa aún no tiene ID del servidor
-    // (por ejemplo, se creó sin conexión y sigue en la cola), hay que avisar.
-    if (conectado && !usaServidor) {
+    if (!mesaElegida) {
+      return { exito: false, error: 'Selecciona una mesa antes de enviar el pedido.' };
+    }
+
+    const idMesa = mesaElegida.id_mesa;
+    const numMesa = mesaElegida.num_mesa;
+
+    if (!esUuidValido(idMesa)) {
       return {
         exito: false,
         error: 'La mesa todavía no está sincronizada. Revisa tu conexión e inténtalo de nuevo.',
       };
     }
 
-    // Con sesión real no se puede mandar un menú de ejemplo: los IDs no existen en la base.
-    if (usaServidor && !productosReales) {
+    if (!carrito.every((item) => esUuidValido(item.id_producto))) {
       return {
         exito: false,
         error: 'El menú todavía no está sincronizado con el servidor. Recarga la app e inténtalo de nuevo.',
       };
     }
 
-    if (usaServidor && idMesa && idUsuario) {
-      try {
-        const supabase = obtener_supabase();
-        // El precio lo pone la función con el catálogo del servidor, no el teléfono.
-        const detalles = carrito.map((item) => ({
-          id_detalle: generarUuid(),
-          id_producto: item.id_producto,
-          cantidad: item.cantidad,
-          especificaciones: (item.especificaciones || especificacionesGenerales || '').trim(),
-          tiempo_estimado: 15,
-          id_estado: 2, // 2 = en preparación en detalle_comanda
-        }));
+    // Los IDs se generan una sola vez: si la petición se reintenta, la función reconoce
+    // la comanda y los productos y no los duplica.
+    const idComanda = generarUuid();
 
-        const { resultado, fallo_red } = await con_reintentos(async () =>
-          await supabase.rpc('crear_comanda', {
-            p_id_comanda: idComanda,
-            p_id_mesa: idMesa,
-            p_detalles: detalles,
-          })
-        );
+    try {
+      const supabase = obtener_supabase();
+      // El precio lo pone la función con el catálogo del servidor, no el teléfono.
+      const detalles = carrito.map((item) => ({
+        id_detalle: generarUuid(),
+        id_producto: item.id_producto,
+        cantidad: item.cantidad,
+        especificaciones: (item.especificaciones || especificacionesGenerales || '').trim(),
+        tiempo_estimado: 15,
+        id_estado: 2, // 2 = en preparación en detalle_comanda
+      }));
 
-        if (fallo_red) {
-          return { exito: false, error: MENSAJE_SIN_CONEXION };
-        }
-        if (resultado?.error) {
-          console.warn('Error al enviar la comanda a Supabase:', resultado.error);
-          return { exito: false, error: traducirErrorComanda(resultado.error.message ?? '') };
-        }
+      const { resultado, fallo_red } = await con_reintentos(async () =>
+        await supabase.rpc('crear_comanda', {
+          p_id_comanda: idComanda,
+          p_id_mesa: idMesa,
+          p_detalles: detalles,
+        })
+      );
 
-        // La mesa ya se marcó ocupada en la función; esto actualiza la copia local.
-        await cambiarEstadoMesa(mesaSeleccionada, 'ocupada');
-        limpiarCarrito();
-        await cargarComandas();
-        return { exito: true };
-      } catch (err) {
-        console.warn('Excepción al enviar la comanda a Supabase:', err);
+      if (fallo_red) {
         return { exito: false, error: MENSAJE_SIN_CONEXION };
       }
-    }
+      if (resultado?.error) {
+        console.warn('Error al enviar la comanda a Supabase:', resultado.error);
+        return { exito: false, error: traducirErrorComanda(resultado.error.message ?? '') };
+      }
 
-    // Sin sesión real (modo demo) se conserva el flujo local de siempre.
-    const idMesaLocal = idMesa ?? `mesa-${mesaSeleccionada}`;
-
-    const nuevaComanda: Comanda = {
-      id_comanda: idComanda,
-      id_cafeteria: idCafeteria,
-      id_mesa: idMesaLocal,
-      num_mesa: mesaSeleccionada,
-      id_usuario: usuario?.id_usuario ?? 'usr-2',
-      nombre_mesero: usuario?.nombre ?? 'Liz',
-      id_estado: 1, // 1 = abierta en modelo comanda
-      estado: 'en preparación',
-      total,
-      fecha_creacion: new Date().toISOString(),
-      detalles: carrito.map((item) => ({
-        id_detalle: generarUuid(),
-        id_comanda: idComanda,
-        id_producto: item.id_producto,
-        nombre_producto: item.nombre_producto,
-        cantidad: item.cantidad,
-        precio_unitario: item.precio,
-        especificaciones: item.especificaciones || especificacionesGenerales,
-        id_estado: 2, // 2 = en preparación en detalle_comanda
-        tiempo_estimado_minutos: 15,
-      })),
-    };
-
-    const actualizadas = [nuevaComanda, ...comandas];
-    setComandas(actualizadas);
-    await AsyncStorage.setItem(STORAGE_KEY_COMANDAS, JSON.stringify(actualizadas));
-
-    // Cambiar la mesa a ocupada automáticamente
-    await cambiarEstadoMesa(mesaSeleccionada, 'ocupada');
-
-    // Limpiar carrito
-    limpiarCarrito();
-
-    return { exito: true, comanda: nuevaComanda };
-  };
-
-  // Cocina actualiza el estado de un producto (1: pendiente, 2: en preparación, 3: listo)
-  const actualizarEstadoDetalle = async (id_comanda: string, id_detalle: string, nuevoEstado: number) => {
-    const actualizadas = comandas.map((c) => {
-      if (c.id_comanda !== id_comanda) return c;
-      const nuevosDetalles = c.detalles.map((d) =>
-        d.id_detalle === id_detalle ? { ...d, id_estado: nuevoEstado } : d
-      );
-      return { ...c, detalles: nuevosDetalles };
-    });
-
-    setComandas(actualizadas);
-    await AsyncStorage.setItem(STORAGE_KEY_COMANDAS, JSON.stringify(actualizadas));
-  };
-
-  // Cocina asigna tiempo estimado por producto
-  const actualizarTiempoEstimadoDetalle = async (id_comanda: string, id_detalle: string, minutos: number) => {
-    const actualizadas = comandas.map((c) => {
-      if (c.id_comanda !== id_comanda) return c;
-      const nuevosDetalles = c.detalles.map((d) =>
-        d.id_detalle === id_detalle ? { ...d, tiempo_estimado_minutos: minutos } : d
-      );
-      return { ...c, detalles: nuevosDetalles };
-    });
-
-    setComandas(actualizadas);
-    await AsyncStorage.setItem(STORAGE_KEY_COMANDAS, JSON.stringify(actualizadas));
-  };
-
-  // Cocina completa la orden
-  const completarComanda = async (id_comanda: string) => {
-    const comandaObj = comandas.find((c) => c.id_comanda === id_comanda);
-
-    const actualizadas = comandas.map((c) =>
-      c.id_comanda === id_comanda ? { ...c, id_estado: 1, estado: 'listo' as const } : c
-    );
-
-    setComandas(actualizadas);
-    await AsyncStorage.setItem(STORAGE_KEY_COMANDAS, JSON.stringify(actualizadas));
-
-    // Generar notificación para el mesero de "Pedido listo"
-    if (comandaObj) {
-      const nuevaNotif: NotificacionItem = {
-        id_notificacion: `not-${Date.now()}`,
-        num_mesa: comandaObj.num_mesa,
-        tiempo: 'hace 1 min',
-        leida: false,
-        fecha: new Date().toISOString(),
-      };
-      const nuevasNotifs = [nuevaNotif, ...notificaciones];
-      setNotificaciones(nuevasNotifs);
-      await AsyncStorage.setItem(STORAGE_KEY_NOTIFICACIONES, JSON.stringify(nuevasNotifs));
+      // La mesa ya se marcó ocupada en la función; esto actualiza la copia local.
+      await cambiarEstadoMesa(numMesa, 'ocupada');
+      limpiarCarrito();
+      await cargarComandas();
+      return { exito: true };
+    } catch (err) {
+      console.warn('Excepción al enviar la comanda a Supabase:', err);
+      return { exito: false, error: MENSAJE_SIN_CONEXION };
     }
   };
 
@@ -1566,7 +1216,6 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       n.id_notificacion === id_notificacion ? { ...n, leida: true } : n
     );
     setNotificaciones(actualizadas);
-    AsyncStorage.setItem(STORAGE_KEY_NOTIFICACIONES, JSON.stringify(actualizadas));
 
     // También en el servidor, para que el aviso no reaparezca al recargar o en otro teléfono.
     if (conectado && idUsuario) {
@@ -1590,7 +1239,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
         cargandoMesas,
         comandas,
         notificaciones,
-        mesaSeleccionada,
+        mesaSeleccionada: mesaElegida?.num_mesa ?? 0,
         carrito,
         colaPendienteMesas,
         pendientesMesas: colaPendienteMesas.length,
@@ -1608,9 +1257,6 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
         actualizarEspecificaciones,
         limpiarCarrito,
         enviarComandaACocina,
-        actualizarEstadoDetalle,
-        actualizarTiempoEstimadoDetalle,
-        completarComanda,
         marcarNotificacionLeida,
       }}
     >

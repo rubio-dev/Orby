@@ -26,8 +26,8 @@ export default function AdminProfileScreen() {
   const { colores } = useTema();
   const { usuario, cerrarSesion, cambiarContrasena } = useAuth();
 
-  const correo = usuario?.correo ?? 'usuario@ejemplo.com';
-  const nombreAdmin = usuario?.nombre ?? 'Gael Guzmán';
+  const correo = usuario?.correo ?? '';
+  const nombreAdmin = usuario?.nombre ?? 'Administrador';
 
   // Campos de contraseña vacíos por seguridad (Supabase nunca expone la contraseña actual)
   const [nuevaContrasena, setNuevaContrasena] = useState('');

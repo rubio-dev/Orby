@@ -112,7 +112,9 @@ VALUES
   ('a0000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000003', 'Flan', 'Flan casero con caramelo.', 40, NULL, true)
 ON CONFLICT ("id_producto") DO NOTHING;
 
--- Usuario Administrador en Supabase Auth y en public.usuario
+-- Usuario administrador SOLO para Supabase local.
+-- En la nube las cuentas reales del equipo se crean aparte y no se versionan.
+-- Este usuario existe para poder probar la app en local con `pnpm db:start`.
 INSERT INTO auth.users (
   instance_id,
   id,
@@ -134,7 +136,7 @@ INSERT INTO auth.users (
   extensions.crypt('admin123', extensions.gen_salt('bf')),
   now(),
   '{"provider":"email","providers":["email"]}',
-  '{"rol":"administrador","nombre":"Gael Guzmán","nombre_cafeteria":"Orby Cafetería"}',
+  '{"rol":"administrador","nombre":"Administrador local","nombre_cafeteria":"Orby Cafetería"}',
   now(),
   now()
 ) ON CONFLICT (id) DO NOTHING;
@@ -143,81 +145,11 @@ INSERT INTO "public"."usuario" ("id_usuario", "id_cafeteria", "nombre", "id_rol"
 VALUES (
   '11111111-1111-1111-1111-111111111111',
   '00000000-0000-0000-0000-000000000001',
-  'Gael Guzmán',
+  'Administrador local',
   1
 ) ON CONFLICT ("id_usuario") DO NOTHING;
 
--- Usuario Mesero
-INSERT INTO auth.users (
-  instance_id,
-  id,
-  aud,
-  role,
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  raw_app_meta_data,
-  raw_user_meta_data,
-  created_at,
-  updated_at
-) VALUES (
-  '00000000-0000-0000-0000-000000000000',
-  '22222222-2222-2222-2222-222222222222',
-  'authenticated',
-  'authenticated',
-  'mesero@orby.com',
-  extensions.crypt('mesero123', extensions.gen_salt('bf')),
-  now(),
-  '{"provider":"email","providers":["email"]}',
-  '{"rol":"mesero","nombre":"Liz Morales","id_cafeteria":"00000000-0000-0000-0000-000000000001"}',
-  now(),
-  now()
-) ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO "public"."usuario" ("id_usuario", "id_cafeteria", "nombre", "id_rol")
-VALUES (
-  '22222222-2222-2222-2222-222222222222',
-  '00000000-0000-0000-0000-000000000001',
-  'Liz Morales',
-  2
-) ON CONFLICT ("id_usuario") DO NOTHING;
-
--- Usuario Cocina
-INSERT INTO auth.users (
-  instance_id,
-  id,
-  aud,
-  role,
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  raw_app_meta_data,
-  raw_user_meta_data,
-  created_at,
-  updated_at
-) VALUES (
-  '00000000-0000-0000-0000-000000000000',
-  '33333333-3333-3333-3333-333333333333',
-  'authenticated',
-  'authenticated',
-  'cocina@orby.com',
-  extensions.crypt('cocina123', extensions.gen_salt('bf')),
-  now(),
-  '{"provider":"email","providers":["email"]}',
-  '{"rol":"cocina","nombre":"Emilio Sánchez","id_cafeteria":"00000000-0000-0000-0000-000000000001"}',
-  now(),
-  now()
-) ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO "public"."usuario" ("id_usuario", "id_cafeteria", "nombre", "id_rol")
-VALUES (
-  '33333333-3333-3333-3333-333333333333',
-  '00000000-0000-0000-0000-000000000001',
-  'Emilio Sánchez',
-  3
-) ON CONFLICT ("id_usuario") DO NOTHING;
-
--- Normalizar las columnas de token de los usuarios demo
+-- Normalizar las columnas de token del usuario local
 -- GoTrue (auth) las lee como texto, no como nulos: si quedan en NULL, el login falla con
 -- "Database error querying schema" (HTTP 500) aunque el correo y la contraseña sean correctos.
 UPDATE auth.users SET
@@ -229,7 +161,7 @@ UPDATE auth.users SET
   phone_change               = coalesce(phone_change, ''),
   phone_change_token         = coalesce(phone_change_token, ''),
   reauthentication_token     = coalesce(reauthentication_token, '')
-WHERE email IN ('admin@orby.com', 'mesero@orby.com', 'cocina@orby.com');
+WHERE email IN ('admin@orby.com');
 
 -- Identidad de correo por usuario: es lo que auth consulta al iniciar sesión
 INSERT INTO auth.identities (id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
@@ -237,7 +169,7 @@ SELECT gen_random_uuid(), u.id, u.id::text,
        jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true, 'phone_verified', false),
        'email', now(), now(), now()
 FROM auth.users u
-WHERE u.email IN ('admin@orby.com', 'mesero@orby.com', 'cocina@orby.com')
+WHERE u.email IN ('admin@orby.com')
   AND NOT EXISTS (SELECT 1 FROM auth.identities i WHERE i.user_id = u.id AND i.provider = 'email');
 
 -- Poner al administrador en la cafetería demo

@@ -195,7 +195,7 @@ La lista completa está en `src/theme/themes.ts`. El naranja de atardecer (`#FF9
 |---|---|---|
 | `ScreenHeader` | botón de volver, título y subtítulo opcional | Pantallas internas |
 | `BottomNav` | Inicio, Avisos (con contador), Perfil, Salir | Pantallas principales de cada rol |
-| `SegmentedTabs` | dos pastillas | Menú/Favoritos, En preparación/Listos, Productos/Categorías |
+| `SegmentedTabs` | dos pastillas | En preparación/Listos, Productos/Categorías, categorías del menú |
 | `CategoryChips` | fila de pastillas | Menú, Nuevo pedido |
 | `BottomActionBar` | barra fija abajo con total y botón | Detalle del pedido, Detalle de comanda, Agregar producto |
 | `Dialog` | fondo oscuro y tarjeta centrada | Cambiar estado de mesa |

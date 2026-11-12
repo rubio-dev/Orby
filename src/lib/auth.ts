@@ -68,7 +68,7 @@ export function traducir_error(error: ErrorSupabase) {
     mensaje.includes('auth session missing') ||
     mensaje.includes('session_not_found')
   ) {
-    return 'Tu sesión ha expirado o estás en modo demostración. Inicia sesión nuevamente con tu cuenta real.';
+    return 'Tu sesión venció. Inicia sesión de nuevo.';
   }
 
   if (codigo.startsWith('over_') || mensaje.includes('rate limit')) {

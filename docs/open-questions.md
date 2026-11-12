@@ -17,8 +17,6 @@ Cuando una se resuelve, se borra de aquí y se registra en [decisions.md](decisi
 
 ## Diseño
 
-- **Pestaña "Favoritos" y "Categorías".** El código actual ya define qué hacen: "Favoritos" filtra Latte y Frappé, y "Categorías" muestra Bebidas/Comida/Postres sin permitir crear ni editar. ¿Se quedan así o el administrador podrá administrar categorías y favoritos?
-- **Mi cuenta muestra la contraseña.** Las tres pantallas de perfil muestran un campo de contraseña con el valor local `password123`; el cambio de contraseña es simulado (en admin con `Alert.prompt`, en mesero y cocina con un aviso). Supabase no guarda la contraseña en claro ni la app puede leerla. Propuesta: mostrar solo el botón "Cambiar contraseña".
 - **Historial de cocina: ¿turno o todo?** La pantalla filtra todas las comandas con estado 3 o 4 de la lista local, sin filtro de fecha, pero el texto vacío dice "en el turno". Falta definir si debe mostrar el turno actual, el día o todo el historial.
 
 ## Flujo y reglas de negocio
@@ -36,5 +34,4 @@ Cuando una se resuelve, se borra de aquí y se registra en [decisions.md](decisi
 - **Un administrador no puede entrar a una cafetería existente.** El trigger `handle_new_user` siempre crea una cafetería nueva cuando el rol es `administrador`. No hay forma de dar de alta a un segundo administrador en una cafetería que ya existe.
 - **Notificaciones push al mesero.** Mientras la app está abierta, los avisos de "pedido listo" llegan por Realtime desde `notificacion`. Con la app cerrada requieren `expo-notifications` y un *development build* con EAS. Falta definir cuáles se necesitan.
 - **Edge Function en `db:start:lite`.** El comando excluye `edge-runtime` (`supabase start -x ...,edge-runtime,...`), así que `registrar-empleado` no corre con el arranque liviano. Hay que usar `pnpm db:start` o quitar `edge-runtime` de la lista cuando se pruebe el alta de personal.
-- **Sesión local sin contraseña.** `iniciarSesion` cae a los usuarios demo y al personal local buscando solo el correo; no compara la contraseña. `seleccionarUsuarioDemo` entra con un toque. Sirve para la demo, pero no debe llegar a producción.
 - **Imágenes de productos.** Se guardarán en Supabase Storage, pero `pnpm db:start:lite` excluye ese servicio (`storage-api`). Cuando se implemente, hay que quitarlo de la lista de exclusión o usar `pnpm db:start`.

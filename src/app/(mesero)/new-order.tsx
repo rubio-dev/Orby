@@ -23,14 +23,18 @@ import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (
 export default function MeseroNewOrderScreen() {
   const router = useRouter();
   const { colores } = useTema();
-  const { productos } = useCatalog();
+  const { productos, categorias } = useCatalog();
   const { mesas, mesaSeleccionada, seleccionarMesa, carrito, agregarAlCarrito } = useOrders();
 
-  const [categoriaFiltro, setCategoriaFiltro] = useState<'Bebidas' | 'Comida' | 'Postres'>('Bebidas');
+  const [categoriaFiltro, setCategoriaFiltro] = useState<string>('');
   const [modalMesaAbierto, setModalMesaAbierto] = useState(false);
 
+  const categoriaElegida = categorias.some((c) => c.nombre_categoria === categoriaFiltro)
+    ? categoriaFiltro
+    : (categorias[0]?.nombre_categoria ?? '');
+
   const productosFiltrados = productos.filter(
-    (p) => p.nombre_categoria === categoriaFiltro && p.estado !== false
+    (p) => p.nombre_categoria === categoriaElegida && p.estado !== false
   );
 
   const cantidadTotalEnCarrito = carrito.reduce((acc, item) => acc + item.cantidad, 0);
@@ -39,17 +43,23 @@ export default function MeseroNewOrderScreen() {
     agregarAlCarrito({
       id_producto: p.id_producto,
       nombre_producto: p.nombre_producto,
+      descripcion: p.descripcion,
       precio: p.precio,
       cantidad: 1,
       especificaciones: '',
       imagen_url: p.imagen_url,
     });
-    mostrarAviso('Agregado', `${p.nombre_producto} se agregó al pedido de la Mesa ${mesaSeleccionada}.`);
+    mostrarAviso('Agregado', `${p.nombre_producto} se agregó al pedido.`);
   };
 
   const handleIrAlResumen = () => {
     if (carrito.length === 0) {
       mostrarAviso('Pedido vacío', 'Selecciona al menos un producto para continuar.');
+      return;
+    }
+    if (mesaSeleccionada <= 0) {
+      mostrarAviso('Selecciona una mesa', 'Elige la mesa antes de revisar el pedido.');
+      setModalMesaAbierto(true);
       return;
     }
     router.push('/(mesero)/order-summary');
@@ -83,8 +93,8 @@ export default function MeseroNewOrderScreen() {
             {item.nombre_producto}
           </Text>
           <View style={estilos.filaPrecio}>
-            <Text style={[estilos.desc, { color: colores.text_muted }]}>
-              Descripción
+            <Text style={[estilos.desc, { color: colores.text_muted }]} numberOfLines={1}>
+              {item.descripcion || 'Sin descripción'}
             </Text>
             <Text style={[estilos.precio, { color: colores.text }]}>
               ${item.precio}
@@ -109,27 +119,30 @@ export default function MeseroNewOrderScreen() {
       />
 
       <View style={estilos.contenido}>
-        {/* Selector de Mesa (Mesa 5 con flecha) */}
+        {/* Selector de mesa */}
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => setModalMesaAbierto(true)}
           style={[estilos.selectorMesa, { backgroundColor: colores.surface, borderColor: colores.text }]}
         >
-          <Text style={[estilos.textoMesa, { color: colores.text }]}>Mesa {mesaSeleccionada}</Text>
+          <Text style={[estilos.textoMesa, { color: colores.text }]}>
+            {mesaSeleccionada > 0 ? `Mesa ${mesaSeleccionada}` : 'Selecciona una mesa'}
+          </Text>
           <Ionicons name="chevron-down" size={24} color={colores.text} />
         </TouchableOpacity>
 
-        {/* Pastillas de Categorías: Bebidas | Comida | Postres */}
-        <SegmentedTabs
-          opciones={[
-            { id: 'Bebidas', etiqueta: 'Bebidas' },
-            { id: 'Comida', etiqueta: 'Comida' },
-            { id: 'Postres', etiqueta: 'Postres' },
-          ]}
-          seleccionada={categoriaFiltro}
-          alSeleccionar={setCategoriaFiltro}
-          tipo="pills"
-        />
+        {/* Categorías reales de la cafetería */}
+        {categorias.length > 0 && (
+          <SegmentedTabs
+            opciones={categorias.map((c) => ({
+              id: c.nombre_categoria,
+              etiqueta: c.nombre_categoria,
+            }))}
+            seleccionada={categoriaElegida}
+            alSeleccionar={setCategoriaFiltro}
+            tipo="pills"
+          />
+        )}
 
         {/* Lista de productos */}
         <FlatList
@@ -138,6 +151,13 @@ export default function MeseroNewOrderScreen() {
           renderItem={renderProducto}
           contentContainerStyle={estilos.lista}
           showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={estilos.vacio}>
+              <Text style={[tipografia.cuerpo, { color: colores.text_muted }]}>
+                No hay productos disponibles. El administrador debe cargar el menú.
+              </Text>
+            </View>
+          }
         />
 
         {/* Botones inferiores: Agregar pedido y Carrito */}
@@ -370,5 +390,10 @@ const estilos = StyleSheet.create({
   itemMesaModalTexto: {
     fontFamily: fuentes.bold,
     fontSize: 20,
+  },
+  vacio: {
+    alignItems: 'center',
+    paddingTop: espaciado.xl,
+    paddingHorizontal: espaciado.lg,
   },
 });

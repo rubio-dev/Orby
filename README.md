@@ -9,11 +9,11 @@ La descripción del proyecto, la arquitectura, las decisiones y los pendientes e
 | Integrante | GitHub | Rol | Rama |
 |---|---|---|---|
 | Gael Guzmán Alarcón | [@cVerox](https://github.com/cVerox) | Administrador | `Admin` |
-| Abigail «Abi» Altamirano González | [@AbigailAltamiranoGonzalez](https://github.com/AbigailAltamiranoGonzalez) | Mesero o cocina (por definir) | `Mesero` o `Cocinero` |
-| Lizbeth García | [@LizbethGarciac](https://github.com/LizbethGarciac) | Mesero o cocina (por definir) | `Mesero` o `Cocinero` |
+| Abigail «Abi» Altamirano González | [@AbigailAltamiranoGonzalez](https://github.com/AbigailAltamiranoGonzalez) | Cocina / barra | `Cocinero` |
+| Lizbeth García | [@LizbethGarciac](https://github.com/LizbethGarciac) | Mesero | `Mesero` |
 | José Emilio Rubio | [@rubio-dev](https://github.com/rubio-dev) | Despliegue y pruebas completas | `Despliegue` |
 
-> **Pendiente:** Abi y Lizbeth se reparten `Mesero` y `Cocinero`. Cuando lo definan, se actualiza esta tabla.
+> Las cuentas reales viven en Supabase. Gael y Emilio tienen rol de administrador para probar el panel; Lizbeth entra como mesero y Abi como cocina. Los correos y contraseñas no se versionan.
 
 ### Administrador — Gael (`Admin`)
 
@@ -24,7 +24,7 @@ La descripción del proyecto, la arquitectura, las decisiones y los pendientes e
 - **Perfil:** correo y cambio de contraseña.
 - **Pruebas unitarias** de las pantallas y la lógica de su módulo.
 
-### Mesero — Abi o Lizbeth (`Mesero`)
+### Mesero — Lizbeth (`Mesero`)
 
 - **Inicio:** indicadores del turno y accesos rápidos.
 - **Mesas:** estado de cada mesa (libre, ocupada o apartada).
@@ -34,7 +34,7 @@ La descripción del proyecto, la arquitectura, las decisiones y los pendientes e
 - **Perfil:** correo y cambio de contraseña.
 - **Pruebas unitarias** de las pantallas y la lógica de su módulo.
 
-### Cocina / barra — Abi o Lizbeth (`Cocinero`)
+### Cocina / barra — Abi (`Cocinero`)
 
 - **Inicio:** indicadores operativos y entrada a las comandas.
 - **Comandas:** pestañas de «en preparación» y «listos», con mesa, productos, cantidades y tiempo de espera.
@@ -151,13 +151,12 @@ Los crea `supabase/seed.sql` al sembrar la base. Son solo para el Supabase local
 
 | Correo | Contraseña | Rol |
 |---|---|---|
-| `admin@orby.com` | `admin123` | Administrador |
-| `mesero@orby.com` | `mesero123` | Mesero |
-| `cocina@orby.com` | `cocina123` | Cocina / barra |
+| `admin@orby.com` | `admin123` | Administrador local |
 
-Los tres pertenecen a la misma cafetería demo. Si el login falla con un error 500
-(*"Database error querying schema"*), tu base viene de una siembra vieja: corre
-`pnpm supabase db reset`.
+Es el único usuario de la semilla. Desde el panel de administrador puedes dar de alta
+meseros y cocina locales. En la nube las cuentas son las reales del equipo y no se
+versionan. Si el login falla con un error 500 (*"Database error querying schema"*),
+tu base viene de una siembra vieja: corre `pnpm supabase db reset`.
 
 ### Direcciones locales
 
@@ -226,7 +225,7 @@ Cuando el proyecto esté listo para publicarse:
    ```bash
    pnpm exec supabase login
    pnpm exec supabase link --project-ref <id-del-proyecto>
-   pnpm exec supabase db push --include-seed   # --include-seed es opcional: datos demo
+   pnpm exec supabase db push
    ```
 
 Las tablas y permisos se escriben como **migraciones**: archivos `.sql` en `supabase/migrations/`, que se crean con `pnpm supabase migration new <nombre>`. Se prueban en local y `db push` las aplica en la nube. Así los dos entornos tienen la misma estructura y todo queda versionado en git.
@@ -338,7 +337,7 @@ supabase/
   config.toml     Configuración del Supabase local
   migrations/     Cambios de la base de datos en SQL
   schemas/        Esquemas declarativos de tablas, funciones y extensiones
-  seed.sql        Catálogos, mesas, categorías y usuarios demo para local
+  seed.sql        Catálogos, mesas, categorías, productos y administrador local
   functions/
     registrar-empleado/  Edge Function para alta de meseros y cocineros
 assets/           Íconos e imágenes

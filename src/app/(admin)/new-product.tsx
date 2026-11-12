@@ -320,6 +320,11 @@ export default function AdminNewProductScreen() {
               </Text>
               <Ionicons name="chevron-down" size={22} color={colores.text} />
             </TouchableOpacity>
+            {categorias.length === 0 && (
+              <Text style={[tipografia.detalle, { color: colores.warning, marginTop: espaciado.xs }]}>
+                No hay categorías. Créalas en Menú → Categorías antes de agregar productos.
+              </Text>
+            )}
           </View>
 
           {/* Campo: Descripción del producto */}

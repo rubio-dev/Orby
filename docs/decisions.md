@@ -4,6 +4,16 @@ Cada decisión lleva su fecha, qué se decidió y por qué. Las más recientes v
 
 ---
 
+## 2026-11-12: La app no tiene modo demo; las cuentas del equipo son reales
+
+- **Decisión:** se eliminan de `src/` los usuarios demo, el personal local, las mesas/comandas/notificaciones iniciales, los productos/categorías de ejemplo y las estadísticas fijas. La app arranca vacía y todo sale de Supabase.
+- **Auth:** `iniciarSesion` solo acepta cuentas reales; ya no cae a usuarios demo ni a empleados guardados en el teléfono. `registrarAdministrador`, `registrarPersonal` y `eliminarPersonal` exigen Supabase. Al restaurar la sesión se verifica que Supabase todavía reconozca al usuario.
+- **Datos de negocio:** `mesas`, `comandas`, `notificaciones`, `productos`, `categorias` y `estadisticas` empiezan vacíos. La mesa seleccionada se calcula con las mesas reales (la primera libre si aún no se eligió), no con una mesa 5 fija.
+- **Categorías:** ya no se crean "Bebidas/Comida/Postres" automáticamente. El administrador las da de alta desde Menú → Categorías; si no hay, la app lo explica al agregar un producto.
+- **Pantallas:** se quitan nombres fijos (`Gael`, `Liz`, `Emilio`), el correo de ejemplo, la contraseña `password123` y el botón "Favoritos" con Latte/Frappé. Los perfiles de mesero y cocina ahora cambian la contraseña de verdad, igual que el administrador.
+- **Cuentas:** en la nube se borraron `admin@orby.com`, `mesero@orby.com` y `cocina@orby.com` y se crearon las cuentas del equipo en la cafetería demo. Los correos y contraseñas no se versionan; se administran desde Supabase.
+- **Semilla:** `seed.sql` queda como datos **solo para Supabase local** y crea únicamente el administrador local (`admin@orby.com`). En la nube ya no se usa `--include-seed`; las cuentas reales se administran desde Supabase.
+
 ## 2026-11-12: Comandas reales en Supabase y Realtime entre mesero y cocina
 
 - **Decisión:** `enviarComandaACocina` deja de escribir solo la cabecera. Llama a la función `crear_comanda(p_id_comanda, p_id_mesa, p_detalles)` de `20261112000001_crear_comanda.sql`, que crea o reutiliza la cuenta abierta de la mesa, guarda los productos, calcula el total con el precio del catálogo y marca la mesa como ocupada en una sola transacción. El teléfono manda UUID estables para la comanda y cada producto, así que un reintento por timeout no duplica el pedido.

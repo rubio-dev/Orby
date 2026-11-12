@@ -74,6 +74,6 @@ src/types/            Tipos de usuarios, roles, productos, mesas y comandas
 supabase/config.toml  Configuración del Supabase local
 supabase/migrations/  Migraciones SQL de la base de datos
 supabase/schemas/     Esquemas declarativos de tablas, funciones y extensiones
-supabase/seed.sql     Catálogos, mesas, categorías y usuarios demo para local
+supabase/seed.sql     Catálogos, mesas, categorías, productos y administrador local
 supabase/functions/   Edge Functions (registrar-empleado)
 ```

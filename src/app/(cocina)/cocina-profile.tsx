@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,21 +17,58 @@ import { CustomButton } from '@/components/CustomButton';
 import { CustomInput } from '@/components/CustomInput';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useAuth } from '@/context/auth-context';
-import { confirmarAccion, mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby
-import { espaciado, fuentes, useTema } from '@/theme';
+import { validar_contrasena } from '@/lib/auth';
+import { confirmarAccion, mostrarAviso } from '@/lib/confirm';
+import { espaciado, fuentes, tipografia, useTema } from '@/theme';
 
 export default function CocinaProfileScreen() {
   const router = useRouter();
   const { colores } = useTema();
-  const { usuario, cerrarSesion } = useAuth();
+  const { usuario, cerrarSesion, cambiarContrasena } = useAuth();
 
-  const [correo] = useState(usuario?.correo ?? 'cocina@orby.com');
-  const [contrasena, setContrasena] = useState('password123');
+  const correo = usuario?.correo ?? '';
+  const nombreCocinero = usuario?.nombre ?? 'Cocina';
 
-  const nombreCocinero = usuario?.nombre ?? 'Emilio Sánchez';
+  const [nuevaContrasena, setNuevaContrasena] = useState('');
+  const [confirmarContrasena, setConfirmarContrasena] = useState('');
+  const [errorContrasena, setErrorContrasena] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [mensajeReintento, setMensajeReintento] = useState<string | null>(null);
 
-  const handleCambiarContrasena = () => {
-    mostrarAviso('Cambiar contraseña', 'Contraseña actualizada con éxito.', [{ text: 'OK' }]);
+  const handleCambiarContrasena = async () => {
+    const errorValidacion = validar_contrasena(nuevaContrasena, confirmarContrasena);
+    if (errorValidacion) {
+      setErrorContrasena(errorValidacion);
+      mostrarAviso('Contraseña inválida', errorValidacion);
+      return;
+    }
+
+    setErrorContrasena(null);
+    setMensajeReintento(null);
+    setGuardando(true);
+
+    try {
+      const resultado = await cambiarContrasena(nuevaContrasena, (intentoActual, maxIntentos) => {
+        setMensajeReintento(
+          `Reintentando conexión con el servidor (intento ${intentoActual} de ${maxIntentos})...`
+        );
+      });
+
+      if (resultado.exito) {
+        setNuevaContrasena('');
+        setConfirmarContrasena('');
+        mostrarAviso('Éxito', 'Contraseña actualizada correctamente.');
+      } else {
+        mostrarAviso(
+          'No se pudo actualizar',
+          resultado.error ??
+            'No se pudo conectar al servidor. Verifica tu conexión a internet e inténtalo de nuevo.'
+        );
+      }
+    } finally {
+      setGuardando(false);
+      setMensajeReintento(null);
+    }
   };
 
   const handleCerrarSesion = () => {
@@ -51,10 +89,7 @@ export default function CocinaProfileScreen() {
 
   return (
     <SafeAreaView style={[estilos.pantalla, { backgroundColor: colores.background }]} edges={['top']}>
-      <ScreenHeader
-        titulo="Mi cuenta"
-        onBack={() => router.push('/(cocina)' as any)}
-      />
+      <ScreenHeader titulo="Mi cuenta" onBack={() => router.push('/(cocina)' as any)} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -73,9 +108,7 @@ export default function CocinaProfileScreen() {
           </View>
 
           {/* Nombre de usuario */}
-          <Text style={[estilos.nombre, { color: colores.text }]}>
-            {nombreCocinero}
-          </Text>
+          <Text style={[estilos.nombre, { color: colores.text }]}>{nombreCocinero}</Text>
 
           {/* Formulario */}
           <View style={estilos.formulario}>
@@ -87,17 +120,47 @@ export default function CocinaProfileScreen() {
             />
 
             <CustomInput
-              label="Contraseña"
-              value={contrasena}
+              label="Nueva contraseña"
+              placeholder="Mínimo 8 caracteres"
+              value={nuevaContrasena}
               esContrasena={true}
-              onChangeText={setContrasena}
+              editable={!guardando}
+              onChangeText={(texto) => {
+                setNuevaContrasena(texto);
+                if (errorContrasena) setErrorContrasena(null);
+              }}
               variante="relleno"
             />
+
+            <CustomInput
+              label="Confirmar contraseña"
+              placeholder="Repite la nueva contraseña"
+              value={confirmarContrasena}
+              esContrasena={true}
+              editable={!guardando}
+              error={errorContrasena ?? undefined}
+              onChangeText={(texto) => {
+                setConfirmarContrasena(texto);
+                if (errorContrasena) setErrorContrasena(null);
+              }}
+              variante="relleno"
+            />
+
+            {mensajeReintento ? (
+              <View style={estilos.contenedorReintento}>
+                <ActivityIndicator size="small" color={colores.primary} />
+                <Text style={[tipografia.detalle, estilos.textoReintento, { color: colores.text_secondary }]}>
+                  {mensajeReintento}
+                </Text>
+              </View>
+            ) : null}
 
             <View style={estilos.seccionBoton}>
               <CustomButton
                 titulo="Cambiar contraseña"
                 variante="primary"
+                cargando={guardando}
+                deshabilitado={guardando}
                 onPress={handleCambiarContrasena}
                 estilo={estilos.botonCambiar}
               />
@@ -105,6 +168,7 @@ export default function CocinaProfileScreen() {
               <CustomButton
                 titulo="Cerrar sesión"
                 variante="danger"
+                deshabilitado={guardando}
                 onPress={handleCerrarSesion}
                 estilo={[estilos.botonCambiar, { marginTop: espaciado.sm }]}
               />
@@ -151,6 +215,18 @@ const estilos = StyleSheet.create({
   formulario: {
     width: '100%',
     maxWidth: 360,
+  },
+  contenedorReintento: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espaciado.xs,
+    marginBottom: espaciado.sm,
+    paddingHorizontal: espaciado.sm,
+  },
+  textoReintento: {
+    textAlign: 'center',
+    flexShrink: 1,
   },
   seccionBoton: {
     marginTop: espaciado.md,

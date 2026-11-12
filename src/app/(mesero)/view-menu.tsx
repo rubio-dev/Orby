@@ -19,17 +19,16 @@ import type { Producto } from '@/types';
 export default function MeseroMenuViewScreen() {
   const router = useRouter();
   const { colores } = useTema();
-  const { productos } = useCatalog();
+  const { productos, categorias } = useCatalog();
 
-  const [tabPrincipal, setTabPrincipal] = useState<'menu' | 'favoritos'>('menu');
-  const [categoria, setCategoria] = useState<'Bebidas' | 'Comida' | 'Postres'>('Bebidas');
+  const [categoria, setCategoria] = useState<string>('');
+  const categoriaElegida = categorias.some((c) => c.nombre_categoria === categoria)
+    ? categoria
+    : (categorias[0]?.nombre_categoria ?? '');
 
-  const productosFiltrados = productos.filter((p) => {
-    if (tabPrincipal === 'favoritos') {
-      return (p.nombre_producto === 'Latte' || p.nombre_producto === 'Frappé') && p.estado !== false;
-    }
-    return p.nombre_categoria === categoria && p.estado !== false;
-  });
+  const productosFiltrados = productos.filter(
+    (p) => p.nombre_categoria === categoriaElegida && p.estado !== false
+  );
 
   const renderItem = ({ item }: { item: Producto }) => (
     <View style={[estilos.tarjeta, { backgroundColor: colores.surface, borderColor: colores.text }]}>
@@ -52,8 +51,8 @@ export default function MeseroMenuViewScreen() {
           {item.nombre_producto}
         </Text>
         <View style={estilos.filaPrecio}>
-          <Text style={[estilos.desc, { color: colores.text_muted }]}>
-            Descripción
+          <Text style={[estilos.desc, { color: colores.text_muted }]} numberOfLines={1}>
+            {item.descripcion || 'Sin descripción'}
           </Text>
           <Text style={[estilos.precio, { color: colores.text }]}>
             ${item.precio}
@@ -71,26 +70,14 @@ export default function MeseroMenuViewScreen() {
       />
 
       <View style={estilos.contenido}>
-        {/* Pestañas: Menú | Favoritos */}
-        <SegmentedTabs
-          opciones={[
-            { id: 'menu', etiqueta: 'Menú' },
-            { id: 'favoritos', etiqueta: 'Favoritos' },
-          ]}
-          seleccionada={tabPrincipal}
-          alSeleccionar={setTabPrincipal}
-          tipo="tabs"
-        />
-
-        {/* Pastillas: Bebidas | Comida | Postres */}
-        {tabPrincipal === 'menu' && (
+        {/* Categorías reales de la cafetería */}
+        {categorias.length > 0 && (
           <SegmentedTabs
-            opciones={[
-              { id: 'Bebidas', etiqueta: 'Bebidas' },
-              { id: 'Comida', etiqueta: 'Comida' },
-              { id: 'Postres', etiqueta: 'Postres' },
-            ]}
-            seleccionada={categoria}
+            opciones={categorias.map((c) => ({
+              id: c.nombre_categoria,
+              etiqueta: c.nombre_categoria,
+            }))}
+            seleccionada={categoriaElegida}
             alSeleccionar={setCategoria}
             tipo="pills"
           />

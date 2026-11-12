@@ -206,131 +206,13 @@ const claveCola = (idCafeteria: string) => `@orby_cola_catalogo_${idCafeteria}`;
 const claveEstadisticas = (idCafeteria: string) =>
   `@orby_estadisticas_${idCafeteria}`;
 
-const CATEGORIAS_INICIALES: Categoria[] = [
-  { id_categoria: "cat-1", nombre_categoria: "Bebidas" },
-  { id_categoria: "cat-2", nombre_categoria: "Comida" },
-  { id_categoria: "cat-3", nombre_categoria: "Postres" },
-];
-
-const PRODUCTOS_INICIALES: Producto[] = [
-  {
-    id_producto: "prod-1",
-    id_categoria: "cat-1",
-    nombre_categoria: "Bebidas",
-    nombre_producto: "Café Americano",
-    descripcion: "Espresso doble rebajado con agua caliente a punto.",
-    precio: 60,
-    imagen_url:
-      "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=300&auto=format&fit=crop&q=80",
-    estado: true,
-  },
-  {
-    id_producto: "prod-2",
-    id_categoria: "cat-1",
-    nombre_categoria: "Bebidas",
-    nombre_producto: "Latte",
-    descripcion:
-      "Espresso equilibrado con leche vaporizada y capa fina de microespuma.",
-    precio: 70,
-    imagen_url:
-      "https://images.unsplash.com/photo-1534778101976-62847782c213?w=300&auto=format&fit=crop&q=80",
-    estado: true,
-  },
-  {
-    id_producto: "prod-3",
-    id_categoria: "cat-1",
-    nombre_categoria: "Bebidas",
-    nombre_producto: "Frappé",
-    descripcion: "Bebida helada cremosa a base de café y jarabe artesanal.",
-    precio: 65,
-    imagen_url:
-      "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=300&auto=format&fit=crop&q=80",
-    estado: true,
-  },
-  {
-    id_producto: "prod-4",
-    id_categoria: "cat-1",
-    nombre_categoria: "Bebidas",
-    nombre_producto: "Chocolate Caliente",
-    descripcion:
-      "Chocolate de origen con notas de canela y leche entera cremosa.",
-    precio: 50,
-    imagen_url:
-      "https://images.unsplash.com/photo-1542990253-0d0f5be5f0ed?w=300&auto=format&fit=crop&q=80",
-    estado: true,
-  },
-  {
-    id_producto: "prod-5",
-    id_categoria: "cat-1",
-    nombre_categoria: "Bebidas",
-    nombre_producto: "Licuado de fresa",
-    descripcion: "Fresas naturales de temporada con leche y toque de vainilla.",
-    precio: 60,
-    imagen_url:
-      "https://images.unsplash.com/photo-1553530666-ba11a7da3888?w=300&auto=format&fit=crop&q=80",
-    estado: true,
-  },
-  {
-    id_producto: "prod-6",
-    id_categoria: "cat-2",
-    nombre_categoria: "Comida",
-    nombre_producto: "Chilaquiles",
-    descripcion:
-      "Totopos crujientes con salsa verde o roja, crema, queso y cebolla.",
-    precio: 120,
-    imagen_url:
-      "https://images.unsplash.com/photo-1640719028984-5142fa661837?w=300&auto=format&fit=crop&q=80",
-    estado: true,
-  },
-  {
-    id_producto: "prod-7",
-    id_categoria: "cat-2",
-    nombre_categoria: "Comida",
-    nombre_producto: "Pasta pesto",
-    descripcion:
-      "Pasta artesanal bañada en salsa de albahaca fresca, piñones y parmesano.",
-    precio: 110,
-    imagen_url:
-      "https://images.unsplash.com/photo-1621996346565-e3d5d6281691?w=300&auto=format&fit=crop&q=80",
-    estado: true,
-  },
-  {
-    id_producto: "prod-8",
-    id_categoria: "cat-2",
-    nombre_categoria: "Comida",
-    nombre_producto: "Burritos de machaca",
-    descripcion:
-      "Tortilla de harina con machaca sonorense norteña y frijoles refritos.",
-    precio: 90,
-    imagen_url:
-      "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=300&auto=format&fit=crop&q=80",
-    estado: true,
-  },
-  {
-    id_producto: "prod-9",
-    id_categoria: "cat-3",
-    nombre_categoria: "Postres",
-    nombre_producto: "Cheesecake",
-    descripcion:
-      "Pastel de queso estilo Nueva York con base de galleta y coulis de frutos.",
-    precio: 50,
-    imagen_url:
-      "https://images.unsplash.com/photo-1524351199678-941a58a3df50?w=300&auto=format&fit=crop&q=80",
-    estado: true,
-  },
-];
-
-const ESTADISTICAS_INICIALES: EstadisticasVenta = {
-  ventas_totales_diarias: 20500,
-  porcentaje_cambio_ventas: 17,
-  pedidos_diarios: 180,
-  porcentaje_cambio_pedidos: 8,
-  productos_mas_vendidos: [
-    { posicion: 1, nombre: "Latte", cantidad: 30 },
-    { posicion: 2, nombre: "Chocolate", cantidad: 28 },
-    { posicion: 3, nombre: "Frappé", cantidad: 26 },
-    { posicion: 4, nombre: "Americano", cantidad: 20 },
-  ],
+// Punto de partida vacío: los números reales llegan de Supabase.
+const ESTADISTICAS_VACIAS: EstadisticasVenta = {
+  ventas_totales_diarias: 0,
+  porcentaje_cambio_ventas: 0,
+  pedidos_diarios: 0,
+  porcentaje_cambio_pedidos: 0,
+  productos_mas_vendidos: [],
 };
 
 type CatalogContextType = {
@@ -384,11 +266,10 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   const { usuario } = useAuth();
   const idCafeteria = usuario?.id_cafeteria;
 
-  const [productos, setProductos] = useState<Producto[]>(PRODUCTOS_INICIALES);
-  const [categorias, setCategorias] =
-    useState<Categoria[]>(CATEGORIAS_INICIALES);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [estadisticas, setEstadisticas] =
-    useState<EstadisticasVenta>(ESTADISTICAS_INICIALES);
+    useState<EstadisticasVenta>(ESTADISTICAS_VACIAS);
   const [cargandoCatalogo, setCargandoCatalogo] = useState<boolean>(true);
   const [colaPendiente, setColaPendiente] = useState<OperacionColaCatalogo[]>(
     [],
@@ -883,41 +764,9 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
         let catsActuales: Categoria[] = [];
 
         if (resCat && !resCat.error && Array.isArray(resCat.data)) {
-          if (resCat.data.length === 0) {
-            const iniciales: Categoria[] = [
-              {
-                id_categoria: generarUuid(),
-                id_cafeteria: idCafeteria,
-                nombre_categoria: "Bebidas",
-              },
-              {
-                id_categoria: generarUuid(),
-                id_cafeteria: idCafeteria,
-                nombre_categoria: "Comida",
-              },
-              {
-                id_categoria: generarUuid(),
-                id_cafeteria: idCafeteria,
-                nombre_categoria: "Postres",
-              },
-            ];
-
-            const { resultado: resIns } = await con_reintentos(
-              async () =>
-                await supabase.from("categoria").insert(iniciales).select(),
-              alReintentar,
-            );
-
-            if (resIns && !resIns.error && resIns.data) {
-              catsActuales = resIns.data;
-            } else {
-              catsActuales = iniciales;
-            }
-          } else {
-            catsActuales = resCat.data.filter((c: Categoria) =>
-              esUuidValido(c.id_categoria),
-            );
-          }
+          catsActuales = resCat.data.filter((c: Categoria) =>
+            esUuidValido(c.id_categoria),
+          );
 
           setCategorias(catsActuales);
           await AsyncStorage.setItem(
@@ -988,9 +837,9 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     async function inicializar() {
       setCargandoCatalogo(true);
       if (!idCafeteria || !esUuidValido(idCafeteria)) {
-        setProductos(PRODUCTOS_INICIALES);
-        setCategorias(CATEGORIAS_INICIALES);
-        setEstadisticas(ESTADISTICAS_INICIALES);
+        setProductos([]);
+        setCategorias([]);
+        setEstadisticas(ESTADISTICAS_VACIAS);
         setColaPendiente([]);
         setCargandoCatalogo(false);
         return;

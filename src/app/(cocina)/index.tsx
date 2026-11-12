@@ -41,7 +41,7 @@ export default function CocinaHomeScreen() {
     return () => clearInterval(intervalo);
   }, []);
 
-  const nombreCocinero = usuario?.nombre ?? 'Emilio';
+  const nombreCocinero = usuario?.nombre ?? 'Cocina';
 
   // Mesas activas: las que tienen una cuenta abierta (hay una sola cuenta abierta por mesa).
   // Se cuenta desde las comandas y no desde el estado de la mesa, que el mesero puede

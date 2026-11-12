@@ -219,7 +219,14 @@ export default function AdminHomeScreen() {
       return;
     }
 
-    const idCafeteria = usuario?.id_cafeteria ?? '00000000-0000-0000-0000-000000000001';
+    const idCafeteria = usuario?.id_cafeteria;
+    if (!idCafeteria) {
+      mostrarAviso('Sesión incompleta', 'Vuelve a iniciar sesión para generar el reporte.', [
+        { text: 'Entendido' },
+      ]);
+      return;
+    }
+
     const { inicio, fin, tituloPeriodo } = calcularRangoFechas(tipoPeriodo);
 
     setGenerandoReporte(true);
@@ -235,7 +242,7 @@ export default function AdminHomeScreen() {
         minute: '2-digit',
       });
 
-      const nombreCafeteria = datos.nombreCafeteria || 'Cafetería Orby';
+      const nombreCafeteria = datos.nombreCafeteria || 'Cafetería';
 
       const html = generarHtmlReporte(datos, {
         nombreCafeteria,
@@ -299,7 +306,7 @@ export default function AdminHomeScreen() {
     }
   };
 
-  const nombreAdmin = usuario?.nombre ?? 'Gael';
+  const nombreAdmin = usuario?.nombre ?? 'Administrador';
   const productos = estadisticas?.productos_mas_vendidos ?? [];
   const filasVaciasCount = Math.max(0, 4 - productos.length);
   const filasVacias = Array.from({ length: filasVaciasCount });
