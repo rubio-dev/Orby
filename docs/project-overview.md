@@ -49,6 +49,6 @@ Los tres roles tienen una pantalla de **perfil** donde consultan su correo y cam
 ## Flujo operativo
 
 1. **Autenticación y redirección por rol.** El usuario entra con correo y contraseña. El backend valida su perfil y lo manda automáticamente al panel que le corresponde. **No hay registro público:** las cuentas las crea el administrador.
-2. **Ciclo de la comanda.** El mesero actualiza el estado de la mesa, arma el carrito con especificaciones y lo envía. La comanda llega al instante al panel de cocina.
-3. **Preparación y despacho.** Cocina ve la comanda con su cronómetro, asigna tiempos estimados y actualiza estados. Al marcarla como "listo" se dispara la notificación al mesero, que entrega el pedido al cliente.
+2. **Ciclo de la comanda.** El mesero elige si el pedido es **para comer aquí** (con mesa) o **para llevar** (con nombre del cliente), arma el carrito con especificaciones y lo envía. La comanda llega al instante al panel de cocina. Al enviar un pedido de mesa, la mesa queda ocupada y no se puede abrir otra cuenta en ella.
+3. **Preparación y despacho.** Cocina ve la comanda con su cronómetro, asigna tiempos estimados y actualiza estados. Al marcarla como "listo" se dispara la notificación al mesero, que entrega el pedido al cliente. Al cerrar la cuenta, la mesa vuelve a quedar libre y la venta entra a las métricas del administrador.
 4. **Gestión administrativa.** En paralelo, la administración monitorea ingresos, ajusta el catálogo y genera reportes.

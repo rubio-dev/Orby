@@ -17,7 +17,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { estaEnEspera, useKitchen } from '@/context/kitchen-context';
 import { AvisoSinConexion } from '@/kitchen/AvisoSinConexion';
 import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
-import { ESTADO_COMANDA, ESTADO_DETALLE, type DetalleCocina } from '@/lib/kitchen-network';
+import { ESTADO_COMANDA, ESTADO_DETALLE, etiquetaComanda, type DetalleCocina } from '@/lib/kitchen-network';
 import { espaciado, fuentes, radios, useTema } from '@/theme';
 
 export default function CocinaOrderDetailScreen() {
@@ -69,6 +69,7 @@ export default function CocinaOrderDetailScreen() {
   // Solo se trabaja sobre cuentas abiertas; las cerradas del historial son de solo lectura
   // (la base también lo exige con la política detalle_actualizar_cuenta_abierta)
   const editable = comanda.id_estado === ESTADO_COMANDA.abierta;
+  const etiqueta = etiquetaComanda(comanda);
   const faltantes = comanda.detalles.filter((d) => estaEnEspera(d.id_estado));
   const detalleParaTiempo = comanda.detalles.find((d) => d.id_detalle === idDetalleParaTiempo) ?? null;
 
@@ -84,14 +85,14 @@ export default function CocinaOrderDetailScreen() {
   // 'pedido_listo' al mesero. No cierra la cuenta: eso lo hace quien cobra.
   const handleCompletarOrden = () => {
     if (faltantes.length === 0) {
-      mostrarAviso('Nada pendiente', `La Mesa ${comanda.num_mesa} no tiene productos por preparar.`);
+      mostrarAviso('Nada pendiente', `${etiqueta} no tiene productos por preparar.`);
       return;
     }
 
     const cuantos = faltantes.length === 1 ? 'el producto que falta' : `los ${faltantes.length} productos que faltan`;
     mostrarAviso(
       'Completar orden',
-      `¿Marcar como listos ${cuantos} de la Mesa ${comanda.num_mesa}? Se enviará un solo aviso al mesero.`,
+      `¿Marcar como listos ${cuantos} de ${etiqueta}? Se enviará un solo aviso al mesero.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -103,8 +104,8 @@ export default function CocinaOrderDetailScreen() {
             mostrarAviso(
               sinConexion ? 'Guardado sin conexión' : '¡Orden lista!',
               sinConexion
-                ? `Los productos de la Mesa ${comanda.num_mesa} quedaron listos en este teléfono. El aviso al mesero se enviará al volver la conexión.`
-                : `Se avisó al mesero que el pedido de la Mesa ${comanda.num_mesa} está listo para servirse.`,
+                ? `Los productos de ${etiqueta} quedaron listos en este teléfono. El aviso al mesero se enviará al volver la conexión.`
+                : `Se avisó al mesero que el pedido de ${etiqueta} está listo para servirse.`,
               [{ text: 'Aceptar', onPress: () => router.replace('/(cocina)/orders') }]
             );
           },
@@ -118,7 +119,7 @@ export default function CocinaOrderDetailScreen() {
   return (
     <SafeAreaView style={[estilos.pantalla, { backgroundColor: colores.background }]} edges={['top']}>
       <ScreenHeader
-        titulo={`Mesa ${comanda.num_mesa}`}
+        titulo={etiqueta}
         onBack={() => router.back()}
       />
 
@@ -126,9 +127,9 @@ export default function CocinaOrderDetailScreen() {
       <AvisoSinConexion />
 
       <ScrollView contentContainerStyle={estilos.scroll} showsVerticalScrollIndicator={false}>
-        {/* Subtítulo: Orden #1 */}
+        {/* Subtítulo: referencia corta de la comanda */}
         <Text style={[estilos.subtituloOrden, { color: colores.primary }]}>
-          Orden #{comanda.num_mesa}
+          {comanda.tipo_servicio === 'llevar' ? 'Pedido para llevar' : `Orden #${comanda.num_mesa}`}
         </Text>
 
         {!editable && (

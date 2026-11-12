@@ -20,12 +20,13 @@ import {
 } from '@/lib/auth';
 import { supabase_configurado } from '@/lib/env';
 import {
+  etiquetaComanda,
   mapearComandaCocina,
   SELECT_COMANDA_COCINA,
   type ComandaCocina,
 } from '@/lib/kitchen-network';
 import { obtener_supabase } from '@/lib/supabase';
-import type { Comanda, EstadoMesa, Mesa } from '@/types';
+import type { Comanda, EstadoMesa, Mesa, TipoServicio } from '@/types';
 
 const STORAGE_KEY_MESAS = '@orby_mesas';
 
@@ -37,7 +38,8 @@ const ESPERA_RECARGA_REALTIME_MS = 400;
 
 // La notificación no guarda el número de mesa: se llega por su comanda.
 const SELECT_NOTIFICACION =
-  'id_notificacion, id_comanda, id_tipo, leida, fecha_creacion, comanda(mesa(num_mesa))';
+  'id_notificacion, id_comanda, id_tipo, leida, fecha_creacion, ' +
+  'comanda(mesa(num_mesa), tipo_servicio, nombre_cliente)';
 
 export type OperacionColaMesa = {
   id_operacion: string;
@@ -81,9 +83,21 @@ const ESTADO_MAP_NOMBRE_A_ID: Record<EstadoMesa, number> = {
   inactiva: 4,
 };
 
+function mesaDesdeFila(fila: Record<string, unknown>): Mesa {
+  const idEstado = Number(fila.id_estado);
+  return {
+    id_mesa: String(fila.id_mesa),
+    id_cafeteria: fila.id_cafeteria ? String(fila.id_cafeteria) : undefined,
+    num_mesa: Number(fila.num_mesa),
+    id_estado: idEstado,
+    estado: ESTADO_MAP_ID_A_NOMBRE[idEstado] ?? 'libre',
+  };
+}
+
 export type NotificacionItem = {
   id_notificacion: string;
   num_mesa: number;
+  etiqueta: string;
   tiempo: string;
   leida: boolean;
   fecha: string;
@@ -120,6 +134,8 @@ function mapearComanda(datos: ComandaCocina): Comanda {
     id_cafeteria: datos.id_cafeteria,
     id_mesa: datos.id_mesa,
     num_mesa: datos.num_mesa,
+    tipo_servicio: datos.tipo_servicio,
+    nombre_cliente: datos.nombre_cliente,
     id_usuario: datos.id_usuario,
     id_estado: datos.id_estado,
     estado:
@@ -145,16 +161,30 @@ function mapearComanda(datos: ComandaCocina): Comanda {
 function mapearNotificacion(fila: Record<string, unknown>): NotificacionItem {
   const comanda = primero(
     fila.comanda as
-      | { mesa: { num_mesa: number } | { num_mesa: number }[] | null }
-      | { mesa: { num_mesa: number } | { num_mesa: number }[] | null }[]
+      | {
+          mesa: { num_mesa: number } | { num_mesa: number }[] | null;
+          tipo_servicio?: string;
+          nombre_cliente?: string | null;
+        }
+      | {
+          mesa: { num_mesa: number } | { num_mesa: number }[] | null;
+          tipo_servicio?: string;
+          nombre_cliente?: string | null;
+        }[]
       | null
   );
   const mesa = primero(comanda?.mesa ?? null);
+  const numMesa = Number(mesa?.num_mesa ?? 0);
   const fecha = String(fila.fecha_creacion ?? new Date().toISOString());
 
   return {
     id_notificacion: String(fila.id_notificacion),
-    num_mesa: Number(mesa?.num_mesa ?? 0),
+    num_mesa: numMesa,
+    etiqueta: etiquetaComanda({
+      tipo_servicio: comanda?.tipo_servicio,
+      num_mesa: numMesa,
+      nombre_cliente: comanda?.nombre_cliente,
+    }),
     tiempo: tiempoRelativo(fecha),
     leida: Boolean(fila.leida),
     fecha,
@@ -166,7 +196,14 @@ function traducirErrorComanda(mensaje: string) {
   if (mensaje.includes('SIN_SESION')) return 'Tu sesión venció. Vuelve a iniciar sesión.';
   if (mensaje.includes('SIN_PERMISO')) return 'Tu usuario no puede enviar comandas.';
   if (mensaje.includes('SIN_PRODUCTOS')) return 'El pedido no contiene productos.';
+  if (mensaje.includes('TIPO_INVALIDO')) return 'El tipo de pedido no es válido.';
   if (mensaje.includes('MESA_INVALIDA')) return 'La mesa ya no existe en esta cafetería.';
+  if (mensaje.includes('MESA_NO_DISPONIBLE')) {
+    return 'La mesa está apartada o inactiva. Elige otra mesa.';
+  }
+  if (mensaje.includes('NOMBRE_REQUERIDO')) {
+    return 'Escribe el nombre del cliente para el pedido para llevar.';
+  }
   if (mensaje.includes('PRODUCTO_INVALIDO')) return 'Uno de los productos ya no está disponible.';
   return 'No se pudo enviar la comanda. Intenta de nuevo.';
 }
@@ -187,6 +224,8 @@ export type OrdersContextType = {
   comandas: Comanda[];
   notificaciones: NotificacionItem[];
   mesaSeleccionada: number;
+  tipoServicio: TipoServicio;
+  nombreCliente: string;
   carrito: ItemCarrito[];
   colaPendienteMesas: OperacionColaMesa[];
   pendientesMesas: number;
@@ -199,6 +238,9 @@ export type OrdersContextType = {
   eliminarMesa: (id_mesa: string) => Promise<ResultadoOperacionMesa>;
   recargarMesas: () => Promise<void>;
   seleccionarMesa: (num_mesa: number) => void;
+  seleccionarTipoServicio: (tipo: TipoServicio) => void;
+  actualizarNombreCliente: (nombre: string) => void;
+  cerrarCuentaMesa: (num_mesa: number) => Promise<ResultadoOperacionMesa>;
   agregarAlCarrito: (producto: ItemCarrito) => void;
   quitarDelCarrito: (id_producto: string) => void;
   actualizarEspecificaciones: (id_producto: string, especificaciones: string) => void;
@@ -240,6 +282,8 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   const [comandas, setComandas] = useState<Comanda[]>([]);
   const [notificaciones, setNotificaciones] = useState<NotificacionItem[]>([]);
   const [mesaSeleccionada, setMesaSeleccionada] = useState<number>(0);
+  const [tipoServicio, setTipoServicio] = useState<TipoServicio>('mesa');
+  const [nombreCliente, setNombreCliente] = useState('');
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
 
   // Mesa activa: la que eligió el mesero o, si aún no elige, la primera libre.
@@ -684,6 +728,49 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     };
   }, [conectado, idCafeteria, idUsuario, cargarComandas, cargarNotificaciones]);
 
+  // REALTIME DE MESAS: si otro mesero abre o cierra una mesa, se refleja al instante.
+  useEffect(() => {
+    if (!conectado || !idCafeteria) return;
+
+    const supabase = obtener_supabase();
+
+    const canal = supabase
+      .channel(`mesas-${idCafeteria}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'mesa', filter: `id_cafeteria=eq.${idCafeteria}` },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const idEliminada = (payload.old as { id_mesa?: string } | null)?.id_mesa;
+            if (idEliminada) {
+              setMesas((prev) => prev.filter((m) => m.id_mesa !== idEliminada));
+            }
+            return;
+          }
+
+          const nueva = mesaDesdeFila(payload.new as Record<string, unknown>);
+          setMesas((prev) => {
+            const existe = prev.some((m) => m.id_mesa === nueva.id_mesa);
+            const siguiente = existe
+              ? prev.map((m) => (m.id_mesa === nueva.id_mesa ? nueva : m))
+              : [...prev, nueva];
+            siguiente.sort((a, b) => a.num_mesa - b.num_mesa);
+            AsyncStorage.setItem(storageKeyMesas, JSON.stringify(siguiente)).catch(() => {});
+            return siguiente;
+          });
+        }
+      )
+      .subscribe((estado) => {
+        if (estado === 'SUBSCRIBED') {
+          cargarMesasSupabase(idCafeteria).catch(console.warn);
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(canal);
+    };
+  }, [conectado, idCafeteria, storageKeyMesas, cargarMesasSupabase]);
+
   // AL VOLVER A LA APP: recupera lo que pasó mientras estaba en segundo plano
   useEffect(() => {
     if (!conectado) return;
@@ -1094,8 +1181,61 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Cerrar la cuenta de una mesa: la comanda pasa a cerrada y la mesa queda libre.
+  const cerrarCuentaMesa = async (num_mesa: number): Promise<ResultadoOperacionMesa> => {
+    if (!conectado) {
+      return { exito: false, error: 'No hay una sesión real de Supabase. Vuelve a iniciar sesión.' };
+    }
+
+    const mesa = mesas.find((m) => m.num_mesa === num_mesa);
+    if (!mesa) {
+      return { exito: false, error: 'Mesa no encontrada.' };
+    }
+
+    try {
+      const supabase = obtener_supabase();
+      const { resultado, fallo_red } = await con_reintentos(async () =>
+        await supabase.rpc('cerrar_comanda', { p_id_mesa: mesa.id_mesa })
+      );
+
+      if (fallo_red) {
+        return { exito: false, error: MENSAJE_SIN_CONEXION };
+      }
+
+      if (resultado?.error) {
+        const mensaje = resultado.error.message ?? '';
+        if (mensaje.includes('CUENTA_NO_ABIERTA')) {
+          return { exito: false, error: 'La mesa no tiene una cuenta abierta.' };
+        }
+        if (mensaje.includes('MESA_INVALIDA')) {
+          return { exito: false, error: 'La mesa ya no existe en esta cafetería.' };
+        }
+        return { exito: false, error: traducir_error(resultado.error) };
+      }
+
+      const actualizadas = mesas.map((m) =>
+        m.num_mesa === num_mesa ? { ...m, estado: 'libre' as EstadoMesa, id_estado: 1 } : m
+      );
+      setMesas(actualizadas);
+      await AsyncStorage.setItem(storageKeyMesas, JSON.stringify(actualizadas));
+      await cargarComandas();
+      return { exito: true };
+    } catch (err) {
+      console.warn('Excepción al cerrar la cuenta de la mesa:', err);
+      return { exito: false, error: MENSAJE_SIN_CONEXION };
+    }
+  };
+
   const seleccionarMesa = (num_mesa: number) => {
     setMesaSeleccionada(num_mesa);
+  };
+
+  const seleccionarTipoServicio = (tipo: TipoServicio) => {
+    setTipoServicio(tipo);
+  };
+
+  const actualizarNombreCliente = (nombre: string) => {
+    setNombreCliente(nombre);
   };
 
   const agregarAlCarrito = (item: ItemCarrito) => {
@@ -1121,6 +1261,8 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
 
   const limpiarCarrito = () => {
     setCarrito([]);
+    setTipoServicio('mesa');
+    setNombreCliente('');
   };
 
   // Enviar pedido armado a cocina
@@ -1147,14 +1289,21 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    if (!mesaElegida) {
+    const esLlevar = tipoServicio === 'llevar';
+    const nombreLimpio = nombreCliente.trim();
+
+    if (esLlevar && !nombreLimpio) {
+      return { exito: false, error: 'Escribe el nombre del cliente para el pedido para llevar.' };
+    }
+
+    if (!esLlevar && !mesaElegida) {
       return { exito: false, error: 'Selecciona una mesa antes de enviar el pedido.' };
     }
 
-    const idMesa = mesaElegida.id_mesa;
-    const numMesa = mesaElegida.num_mesa;
+    const idMesa = esLlevar ? null : mesaElegida!.id_mesa;
+    const numMesa = esLlevar ? 0 : mesaElegida!.num_mesa;
 
-    if (!esUuidValido(idMesa)) {
+    if (!esLlevar && !esUuidValido(idMesa)) {
       return {
         exito: false,
         error: 'La mesa todavía no está sincronizada. Revisa tu conexión e inténtalo de nuevo.',
@@ -1189,6 +1338,8 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
           p_id_comanda: idComanda,
           p_id_mesa: idMesa,
           p_detalles: detalles,
+          p_tipo_servicio: tipoServicio,
+          p_nombre_cliente: esLlevar ? nombreLimpio : null,
         })
       );
 
@@ -1201,7 +1352,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       }
 
       // La mesa ya se marcó ocupada en la función; esto actualiza la copia local.
-      await cambiarEstadoMesa(numMesa, 'ocupada');
+      if (!esLlevar) await cambiarEstadoMesa(numMesa, 'ocupada');
       limpiarCarrito();
       await cargarComandas();
       return { exito: true };
@@ -1240,6 +1391,8 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
         comandas,
         notificaciones,
         mesaSeleccionada: mesaElegida?.num_mesa ?? 0,
+        tipoServicio,
+        nombreCliente,
         carrito,
         colaPendienteMesas,
         pendientesMesas: colaPendienteMesas.length,
@@ -1252,6 +1405,9 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
         eliminarMesa,
         recargarMesas,
         seleccionarMesa,
+        seleccionarTipoServicio,
+        actualizarNombreCliente,
+        cerrarCuentaMesa,
         agregarAlCarrito,
         quitarDelCarrito,
         actualizarEspecificaciones,

@@ -16,7 +16,7 @@ import { CocinaBottomNav } from '@/components/CocinaBottomNav';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useKitchen } from '@/context/kitchen-context';
 import { AvisoSinConexion } from '@/kitchen/AvisoSinConexion';
-import { ESTADO_DETALLE, type ComandaCocina } from '@/lib/kitchen-network';
+import { ESTADO_DETALLE, etiquetaComanda, type ComandaCocina } from '@/lib/kitchen-network';
 import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme';
 
 export default function CocinaHistoryScreen() {
@@ -29,7 +29,7 @@ export default function CocinaHistoryScreen() {
     <View style={[estilos.tarjeta, { backgroundColor: colores.surface, borderColor: colores.text }]}>
       <View style={estilos.cabecera}>
         <Text style={[estilos.mesa, { color: colores.text }]}>
-          Mesa {item.num_mesa}
+          {etiquetaComanda(item)}
         </Text>
         <View style={[estilos.chipListo, { backgroundColor: colores.primary_soft }]}>
           <Text style={[estilos.textoChipListo, { color: colores.primary_strong }]}>Completado</Text>
@@ -51,6 +51,8 @@ export default function CocinaHistoryScreen() {
         </Text>
         <TouchableOpacity
           onPress={() => router.push(`/(cocina)/order-detail?id=${item.id_comanda}`)}
+          accessibilityRole="button"
+          accessibilityLabel={`Ver detalles de ${etiquetaComanda(item)}`}
         >
           <Text style={[tipografia.etiqueta, { color: colores.primary_strong, fontWeight: '700' }]}>
             Ver detalles →

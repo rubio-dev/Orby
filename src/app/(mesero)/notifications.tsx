@@ -27,7 +27,7 @@ export default function MeseroNotificationsScreen() {
         marcarNotificacionLeida(item.id_notificacion);
       }}
       accessibilityRole="button"
-      accessibilityLabel={`Pedido listo, mesa ${item.num_mesa}, ${item.tiempo}${
+      accessibilityLabel={`Pedido listo, ${item.etiqueta}, ${item.tiempo}${
         item.leida ? ', leída' : ', sin leer'
       }`}
       accessibilityHint={item.leida ? undefined : 'Marca la notificación como leída'}
@@ -48,7 +48,7 @@ export default function MeseroNotificationsScreen() {
         <Text style={[estilos.titulo, { color: colores.text }]}>Pedido listo</Text>
         <View style={estilos.filaDetalle}>
           <Text style={[estilos.mesaTexto, { color: colores.text_secondary }]}>
-            Mesa {item.num_mesa}
+            {item.etiqueta}
           </Text>
           <Text style={[estilos.tiempoTexto, { color: colores.text_muted }]}>
             {item.tiempo}

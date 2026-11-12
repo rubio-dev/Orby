@@ -27,17 +27,18 @@ La descripción del proyecto, la arquitectura, las decisiones y los pendientes e
 ### Mesero — Lizbeth (`Mesero`)
 
 - **Inicio:** indicadores del turno y accesos rápidos.
-- **Mesas:** estado de cada mesa (libre, ocupada o apartada).
-- **Tomar pedido:** elegir mesa, navegar el menú por categorías, agregar especificaciones y revisar el total.
+- **Mesas:** estado de cada mesa (libre, ocupada o apartada). Una mesa con cuenta abierta se bloquea para nuevas cuentas.
+- **Tomar pedido:** elegir **comer aquí** (mesa) o **para llevar** (nombre del cliente), navegar el menú por categorías, agregar especificaciones y revisar el total.
 - **Envío a cocina:** confirmar la comanda y consultar su resumen.
-- **Notificaciones:** avisos de pedidos listos con mesa y tiempo transcurrido.
+- **Cerrar cuenta:** liberar la mesa y dejar la venta en las métricas del administrador.
+- **Notificaciones:** avisos de pedidos listos con mesa o nombre del cliente y tiempo transcurrido.
 - **Perfil:** correo y cambio de contraseña.
 - **Pruebas unitarias** de las pantallas y la lógica de su módulo.
 
 ### Cocina / barra — Abi (`Cocinero`)
 
 - **Inicio:** indicadores operativos y entrada a las comandas.
-- **Comandas:** pestañas de «en preparación» y «listos», con mesa, productos, cantidades y tiempo de espera.
+- **Comandas:** pestañas de «en preparación» y «listos», con mesa o pedido para llevar, productos, cantidades y tiempo de espera.
 - **Detalle de comanda:** marcar productos como en preparación o listos, asignar tiempo estimado, leer especificaciones y cerrar la orden.
 - **Historial** de comandas.
 - **Perfil:** correo y cambio de contraseña.

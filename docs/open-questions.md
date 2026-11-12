@@ -22,7 +22,7 @@ Cuando una se resuelve, se borra de aquí y se registra en [decisions.md](decisi
 ## Flujo y reglas de negocio
 
 - **Registro público de administrador y cafetería.** `src/app/login.tsx` ofrece "Registrar Admin" y `src/context/auth-context.tsx` llama `supabase.auth.signUp` con `rol: 'administrador'` y `nombre_cafeteria`; el trigger `handle_new_user` crea la cafetería. Esto contradice la suposición anterior de que no había registro público y convive con `enable_signup = true` en `supabase/config.toml`. ¿El alta de administradores es pública a propósito, debe ser por invitación o se quita? Si se desactiva el registro público, ese flujo deja de funcionar.
-- **¿Quién cierra la cuenta y libera la mesa?** Ya está decidido que la comanda es la cuenta de la visita y que la mesa se libera al cerrarla (ver [decisions.md](decisions.md)). Falta definir quién la cierra (el mesero desde la mesa, o la administración al cobrar) y si el cobro se registra en la app o solo en la caja.
+- **Cobro.** Cerrar la cuenta ya libera la mesa y la marca como cerrada, pero el pago no se registra en la app: ¿se cobra en la caja o se agrega un método de pago?
 - **Mesa "apartada".** El esquema y la pantalla de mesas permiten el estado, pero ¿quién la aparta y para qué: reservaciones, mesas unidas?
 - **Tiempo promedio de atención.** Los inicios de mesero y cocina muestran `12 min` fijo. Con la cuenta abierta la medida es por producto, desde su `fecha_creacion`: falta definir si se mide hasta que queda `listo` o hasta que se marca `entregado`. Si es lo segundo, hace falta guardar también esa hora en `detalle_comanda`.
 - **Variación porcentual (admin).** El contexto usa `17 %` y `8 %` fijos. ¿Contra qué se compara: contra el día anterior o contra el mismo día de la semana pasada?

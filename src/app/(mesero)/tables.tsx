@@ -13,15 +13,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useOrders } from '@/context/orders-context';
+import { mostrarAviso } from '@/lib/confirm';
 import { espaciado, fuentes, useTema } from '@/theme';
 import type { EstadoMesa, Mesa } from '@/types';
 
 export default function MeseroTablesScreen() {
   const router = useRouter();
   const { colores } = useTema();
-  const { mesas, cambiarEstadoMesa, seleccionarMesa } = useOrders();
+  const { mesas, cambiarEstadoMesa, cerrarCuentaMesa, seleccionarMesa, seleccionarTipoServicio } =
+    useOrders();
 
   const [mesaParaModificar, setMesaParaModificar] = useState<Mesa | null>(null);
+  const [cerrandoCuenta, setCerrandoCuenta] = useState(false);
 
   const handleSeleccionarEstado = async (nuevoEstado: EstadoMesa) => {
     if (mesaParaModificar) {
@@ -32,9 +35,26 @@ export default function MeseroTablesScreen() {
 
   const handleTomarPedidoMesa = () => {
     if (mesaParaModificar) {
+      seleccionarTipoServicio('mesa');
       seleccionarMesa(mesaParaModificar.num_mesa);
       setMesaParaModificar(null);
       router.push('/(mesero)/new-order');
+    }
+  };
+
+  const handleCerrarCuenta = async () => {
+    if (!mesaParaModificar || cerrandoCuenta) return;
+
+    setCerrandoCuenta(true);
+    const resultado = await cerrarCuentaMesa(mesaParaModificar.num_mesa);
+    setCerrandoCuenta(false);
+
+    if (resultado.exito) {
+      const numMesa = mesaParaModificar.num_mesa;
+      setMesaParaModificar(null);
+      mostrarAviso('Cuenta cerrada', `La mesa ${numMesa} quedó libre y la venta se guardó.`);
+    } else {
+      mostrarAviso('No se pudo cerrar la cuenta', resultado.error ?? 'Inténtalo de nuevo.');
     }
   };
 
@@ -111,59 +131,122 @@ export default function MeseroTablesScreen() {
               Mesa {mesaParaModificar?.num_mesa}
             </Text>
 
-            {/* Opción: Ocupada */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => handleSeleccionarEstado('ocupada')}
-              accessibilityRole="button"
-              accessibilityLabel="Marcar mesa como ocupada"
-              style={[estilos.opcionEstadoBoton, { borderColor: colores.on_primary }]}
-            >
-              <View style={estilos.iconoEstadoBox}>
-                <Ionicons name="lock-closed-outline" size={20} color={colores.on_primary} />
-              </View>
-              <Text style={[estilos.textoOpcionEstado, { color: colores.on_primary }]}>Ocupada</Text>
-            </TouchableOpacity>
+            {mesaParaModificar?.estado === 'ocupada' ? (
+              <>
+                <Text style={[estilos.modalNota, { color: colores.on_primary }]}>
+                  Esta mesa tiene una cuenta abierta. Los productos nuevos se agregan a esa cuenta.
+                </Text>
 
-            {/* Opción: Apartada */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => handleSeleccionarEstado('apartada')}
-              accessibilityRole="button"
-              accessibilityLabel="Marcar mesa como apartada"
-              style={[estilos.opcionEstadoBoton, { borderColor: colores.on_primary }]}
-            >
-              <View style={estilos.iconoEstadoBox}>
-                <Ionicons name="bookmark-outline" size={20} color={colores.on_primary} />
-              </View>
-              <Text style={[estilos.textoOpcionEstado, { color: colores.on_primary }]}>Apartada</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleTomarPedidoMesa}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Agregar productos a la cuenta de la mesa ${mesaParaModificar.num_mesa}`}
+                  style={[estilos.botonTomarPedidoDirecto, { backgroundColor: colores.surface }]}
+                >
+                  <Ionicons name="add-circle-outline" size={20} color={colores.primary} />
+                  <Text style={[estilos.textoTomarPedidoDirecto, { color: colores.primary }]}>
+                    Agregar productos a la cuenta
+                  </Text>
+                </TouchableOpacity>
 
-            {/* Opción: Libre */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => handleSeleccionarEstado('libre')}
-              accessibilityRole="button"
-              accessibilityLabel="Marcar mesa como libre"
-              style={[estilos.opcionEstadoBoton, { borderColor: colores.on_primary }]}
-            >
-              <View style={estilos.iconoEstadoBox}>
-                <Ionicons name="sparkles-outline" size={20} color={colores.on_primary} />
-              </View>
-              <Text style={[estilos.textoOpcionEstado, { color: colores.on_primary }]}>Libre</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  disabled={cerrandoCuenta}
+                  onPress={handleCerrarCuenta}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Cerrar cuenta y liberar la mesa ${mesaParaModificar.num_mesa}`}
+                  accessibilityState={{ disabled: cerrandoCuenta, busy: cerrandoCuenta }}
+                  style={[estilos.botonTomarPedidoDirecto, { backgroundColor: colores.surface, opacity: cerrandoCuenta ? 0.6 : 1 }]}
+                >
+                  <Ionicons name="checkmark-done-outline" size={20} color={colores.primary} />
+                  <Text style={[estilos.textoTomarPedidoDirecto, { color: colores.primary }]}>
+                    {cerrandoCuenta ? 'Cerrando cuenta...' : 'Cerrar cuenta y liberar mesa'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : mesaParaModificar?.estado === 'inactiva' ? (
+              <Text style={[estilos.modalNota, { color: colores.on_primary }]}>
+                Mesa inactiva. El administrador puede activarla desde Gestión de mesas.
+              </Text>
+            ) : (
+              <>
+                {mesaParaModificar?.estado === 'libre' && (
+                  <>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => handleSeleccionarEstado('ocupada')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Marcar mesa como ocupada"
+                      style={[estilos.opcionEstadoBoton, { borderColor: colores.on_primary }]}
+                    >
+                      <View style={estilos.iconoEstadoBox}>
+                        <Ionicons name="lock-closed-outline" size={20} color={colores.on_primary} />
+                      </View>
+                      <Text style={[estilos.textoOpcionEstado, { color: colores.on_primary }]}>Ocupada</Text>
+                    </TouchableOpacity>
 
-            {/* Botón rápido para tomar pedido en esta mesa */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={handleTomarPedidoMesa}
-              accessibilityRole="button"
-              accessibilityLabel={`Tomar pedido en la mesa ${mesaParaModificar?.num_mesa ?? ''}`}
-              style={[estilos.botonTomarPedidoDirecto, { backgroundColor: colores.surface }]}
-            >
-              <Ionicons name="clipboard-outline" size={20} color={colores.primary} />
-              <Text style={[estilos.textoTomarPedidoDirecto, { color: colores.primary }]}>Tomar pedido en esta mesa</Text>
-            </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => handleSeleccionarEstado('apartada')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Marcar mesa como apartada"
+                      style={[estilos.opcionEstadoBoton, { borderColor: colores.on_primary }]}
+                    >
+                      <View style={estilos.iconoEstadoBox}>
+                        <Ionicons name="bookmark-outline" size={20} color={colores.on_primary} />
+                      </View>
+                      <Text style={[estilos.textoOpcionEstado, { color: colores.on_primary }]}>Apartada</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {mesaParaModificar?.estado === 'apartada' && (
+                  <>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => handleSeleccionarEstado('ocupada')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Marcar mesa como ocupada"
+                      style={[estilos.opcionEstadoBoton, { borderColor: colores.on_primary }]}
+                    >
+                      <View style={estilos.iconoEstadoBox}>
+                        <Ionicons name="lock-closed-outline" size={20} color={colores.on_primary} />
+                      </View>
+                      <Text style={[estilos.textoOpcionEstado, { color: colores.on_primary }]}>Ocupada</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => handleSeleccionarEstado('libre')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Marcar mesa como libre"
+                      style={[estilos.opcionEstadoBoton, { borderColor: colores.on_primary }]}
+                    >
+                      <View style={estilos.iconoEstadoBox}>
+                        <Ionicons name="sparkles-outline" size={20} color={colores.on_primary} />
+                      </View>
+                      <Text style={[estilos.textoOpcionEstado, { color: colores.on_primary }]}>Libre</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {mesaParaModificar?.estado !== 'apartada' && (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={handleTomarPedidoMesa}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Tomar pedido en la mesa ${mesaParaModificar?.num_mesa ?? ''}`}
+                    style={[estilos.botonTomarPedidoDirecto, { backgroundColor: colores.surface }]}
+                  >
+                    <Ionicons name="clipboard-outline" size={20} color={colores.primary} />
+                    <Text style={[estilos.textoTomarPedidoDirecto, { color: colores.primary }]}>
+                      Tomar pedido en esta mesa
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -225,6 +308,12 @@ const estilos = StyleSheet.create({
   modalTitulo: {
     fontFamily: fuentes.bold,
     fontSize: 22,
+    marginBottom: espaciado.xs,
+  },
+  modalNota: {
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
     marginBottom: espaciado.xs,
   },
   opcionEstadoBoton: {

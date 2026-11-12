@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CustomInput } from '@/components/CustomInput';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedTabs } from '@/components/SegmentedTabs';
 import { useCatalog } from '@/context/catalog-context';
@@ -24,7 +25,17 @@ export default function MeseroNewOrderScreen() {
   const router = useRouter();
   const { colores } = useTema();
   const { productos, categorias } = useCatalog();
-  const { mesas, mesaSeleccionada, seleccionarMesa, carrito, agregarAlCarrito } = useOrders();
+  const {
+    mesas,
+    mesaSeleccionada,
+    seleccionarMesa,
+    tipoServicio,
+    nombreCliente,
+    seleccionarTipoServicio,
+    actualizarNombreCliente,
+    carrito,
+    agregarAlCarrito,
+  } = useOrders();
 
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>('');
   const [modalMesaAbierto, setModalMesaAbierto] = useState(false);
@@ -57,7 +68,11 @@ export default function MeseroNewOrderScreen() {
       mostrarAviso('Pedido vacío', 'Selecciona al menos un producto para continuar.');
       return;
     }
-    if (mesaSeleccionada <= 0) {
+    if (tipoServicio === 'llevar' && !nombreCliente.trim()) {
+      mostrarAviso('Falta el nombre', 'Escribe el nombre del cliente para el pedido para llevar.');
+      return;
+    }
+    if (tipoServicio === 'mesa' && mesaSeleccionada <= 0) {
       mostrarAviso('Selecciona una mesa', 'Elige la mesa antes de revisar el pedido.');
       setModalMesaAbierto(true);
       return;
@@ -124,22 +139,44 @@ export default function MeseroNewOrderScreen() {
       />
 
       <View style={estilos.contenido}>
-        {/* Selector de mesa */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setModalMesaAbierto(true)}
-          accessibilityRole="button"
-          accessibilityLabel={
-            mesaSeleccionada > 0 ? `Mesa seleccionada, ${mesaSeleccionada}` : 'Selecciona una mesa'
-          }
-          accessibilityHint="Abre la lista de mesas"
-          style={[estilos.selectorMesa, { backgroundColor: colores.surface, borderColor: colores.text }]}
-        >
-          <Text style={[estilos.textoMesa, { color: colores.text }]}>
-            {mesaSeleccionada > 0 ? `Mesa ${mesaSeleccionada}` : 'Selecciona una mesa'}
-          </Text>
-          <Ionicons name="chevron-down" size={24} color={colores.text} />
-        </TouchableOpacity>
+        {/* Tipo de servicio: comer aquí o para llevar */}
+        <SegmentedTabs<'mesa' | 'llevar'>
+          opciones={[
+            { id: 'mesa', etiqueta: 'Comer aquí' },
+            { id: 'llevar', etiqueta: 'Para llevar' },
+          ]}
+          seleccionada={tipoServicio}
+          alSeleccionar={seleccionarTipoServicio}
+          tipo="tabs"
+        />
+
+        {tipoServicio === 'llevar' ? (
+          <CustomInput
+            label="Nombre del cliente"
+            placeholder="Ej. Ana, pedido 12..."
+            value={nombreCliente}
+            onChangeText={actualizarNombreCliente}
+            obligatorio
+            autoCapitalize="words"
+            accessibilityHint="Se usa para llamar al cliente cuando el pedido esté listo"
+          />
+        ) : (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setModalMesaAbierto(true)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              mesaSeleccionada > 0 ? `Mesa seleccionada, ${mesaSeleccionada}` : 'Selecciona una mesa'
+            }
+            accessibilityHint="Abre la lista de mesas"
+            style={[estilos.selectorMesa, { backgroundColor: colores.surface, borderColor: colores.text }]}
+          >
+            <Text style={[estilos.textoMesa, { color: colores.text }]}>
+              {mesaSeleccionada > 0 ? `Mesa ${mesaSeleccionada}` : 'Selecciona una mesa'}
+            </Text>
+            <Ionicons name="chevron-down" size={24} color={colores.text} />
+          </TouchableOpacity>
+        )}
 
         {/* Categorías reales de la cafetería */}
         {categorias.length > 0 && (
@@ -222,34 +259,64 @@ export default function MeseroNewOrderScreen() {
               Seleccionar mesa
             </Text>
             <View style={estilos.gridMesasModal}>
-              {mesas.map((m) => (
-                <TouchableOpacity
-                  key={m.num_mesa}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Mesa ${m.num_mesa}, ${m.estado}`}
-                  accessibilityState={{ selected: m.num_mesa === mesaSeleccionada }}
-                  style={[
-                    estilos.itemMesaModal,
-                    m.num_mesa === mesaSeleccionada
-                      ? { backgroundColor: colores.primary }
-                      : { backgroundColor: colores.placeholder },
-                  ]}
-                  onPress={() => {
-                    seleccionarMesa(m.num_mesa);
-                    setModalMesaAbierto(false);
-                  }}
-                >
-                  <Text
+              {mesas.map((m) => {
+                const noDisponible = m.estado === 'inactiva' || m.estado === 'apartada';
+                const seleccionada = m.num_mesa === mesaSeleccionada;
+
+                return (
+                  <TouchableOpacity
+                    key={m.num_mesa}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Mesa ${m.num_mesa}, ${m.estado}${
+                      m.estado === 'ocupada' ? ', los productos se agregan a la cuenta abierta' : ''
+                    }`}
+                    accessibilityState={{ selected: seleccionada, disabled: noDisponible }}
+                    disabled={noDisponible}
                     style={[
-                      estilos.itemMesaModalTexto,
-                      { color: m.num_mesa === mesaSeleccionada ? colores.on_primary : colores.text },
+                      estilos.itemMesaModal,
+                      seleccionada
+                        ? { backgroundColor: colores.primary }
+                        : m.estado === 'ocupada'
+                          ? { backgroundColor: colores.warning_soft }
+                          : { backgroundColor: colores.placeholder },
+                      noDisponible ? { opacity: 0.4 } : null,
                     ]}
+                    onPress={() => {
+                      seleccionarMesa(m.num_mesa);
+                      setModalMesaAbierto(false);
+                    }}
                   >
-                    {m.num_mesa}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        estilos.itemMesaModalTexto,
+                        { color: seleccionada ? colores.on_primary : colores.text },
+                      ]}
+                    >
+                      {m.num_mesa}
+                    </Text>
+                    <Text
+                      style={[
+                        estilos.itemMesaModalEstado,
+                        {
+                          color: seleccionada
+                            ? colores.on_primary
+                            : m.estado === 'ocupada'
+                              ? colores.warning
+                              : colores.text_muted,
+                        },
+                      ]}
+                    >
+                      {m.estado === 'ocupada' ? 'Cuenta' : m.estado === 'apartada' ? 'Apartada' : m.estado === 'inactiva' ? 'Inactiva' : 'Libre'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
+            {mesas.some((m) => m.estado === 'ocupada') && (
+              <Text style={[tipografia.micro, { color: colores.text_muted, marginTop: espaciado.sm }]}>
+                Las mesas con cuenta abierta se marcan como “Cuenta”: si las eliges, los productos se agregan a esa cuenta.
+              </Text>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -413,6 +480,11 @@ const estilos = StyleSheet.create({
   itemMesaModalTexto: {
     fontFamily: fuentes.bold,
     fontSize: 20,
+  },
+  itemMesaModalEstado: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 1,
   },
   vacio: {
     alignItems: 'center',

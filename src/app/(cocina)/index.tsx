@@ -46,7 +46,9 @@ export default function CocinaHomeScreen() {
   // Mesas activas: las que tienen una cuenta abierta (hay una sola cuenta abierta por mesa).
   // Se cuenta desde las comandas y no desde el estado de la mesa, que el mesero puede
   // dejar en "ocupada" aunque ya no haya pedido.
-  const mesasActivas = new Set(comandasAbiertas.map((c) => c.id_mesa)).size;
+  const mesasActivas = new Set(
+    comandasAbiertas.filter((c) => c.tipo_servicio === 'mesa').map((c) => c.id_mesa)
+  ).size;
 
   // Pedidos hoy: cuentas abiertas hoy, sigan abiertas o ya cerradas.
   // (Las cerradas del contexto ya son solo las de hoy.)

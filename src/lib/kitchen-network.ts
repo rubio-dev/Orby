@@ -65,8 +65,10 @@ export type DetalleCocina = {
 export type ComandaCocina = {
   id_comanda: string;
   id_cafeteria: string;
-  id_mesa: string;
-  num_mesa: number;
+  id_mesa: string; // '' en pedidos para llevar
+  num_mesa: number; // 0 en pedidos para llevar
+  tipo_servicio: 'mesa' | 'llevar';
+  nombre_cliente: string | null;
   id_usuario: string; // El mesero que abrió la cuenta: a él le llega el aviso de "listo"
   id_estado: number;
   total: number;
@@ -74,10 +76,25 @@ export type ComandaCocina = {
   detalles: DetalleCocina[];
 };
 
+// Texto único para mesa o para llevar. Lo usan cocina, historial y avisos.
+export function etiquetaComanda(comanda: {
+  tipo_servicio?: string;
+  num_mesa: number;
+  nombre_cliente?: string | null;
+}) {
+  if (comanda.tipo_servicio === 'llevar') {
+    return comanda.nombre_cliente
+      ? `Para llevar · ${comanda.nombre_cliente}`
+      : 'Para llevar';
+  }
+  return `Mesa ${comanda.num_mesa}`;
+}
+
 // Columnas que pide la cocina: la comanda, el número de su mesa y sus productos con el nombre.
 // PostgREST arma los objetos anidados siguiendo las llaves foráneas.
 export const SELECT_COMANDA_COCINA =
   'id_comanda, id_cafeteria, id_mesa, id_usuario, id_estado, total, fecha_creacion, ' +
+  'tipo_servicio, nombre_cliente, ' +
   'mesa(num_mesa), ' +
   'detalle_comanda(id_detalle, id_comanda, id_producto, cantidad, precio_unitario, especificaciones, ' +
   'tiempo_estimado, id_estado, fecha_creacion, producto(nombre_producto))';
@@ -97,8 +114,10 @@ export function mapearComandaCocina(fila: Record<string, unknown>): ComandaCocin
   return {
     id_comanda: String(fila.id_comanda),
     id_cafeteria: String(fila.id_cafeteria),
-    id_mesa: String(fila.id_mesa),
+    id_mesa: fila.id_mesa ? String(fila.id_mesa) : '',
     num_mesa: Number(mesa?.num_mesa ?? 0),
+    tipo_servicio: fila.tipo_servicio === 'llevar' ? 'llevar' : 'mesa',
+    nombre_cliente: (fila.nombre_cliente as string | null) ?? null,
     id_usuario: String(fila.id_usuario),
     id_estado: Number(fila.id_estado),
     total: Number(fila.total ?? 0),
@@ -211,7 +230,8 @@ export function contarCambiosPendientes(cola: OperacionCocina[]): number {
 }
 
 function etiqueta(op: OperacionCocina) {
-  return `“${op.nombre_producto}” (Mesa ${op.num_mesa})`;
+  const lugar = op.num_mesa > 0 ? `Mesa ${op.num_mesa}` : 'Para llevar';
+  return `“${op.nombre_producto}” (${lugar})`;
 }
 
 // Un token vencido no es un error del cambio: se detiene la cola y se reintenta con sesión nueva

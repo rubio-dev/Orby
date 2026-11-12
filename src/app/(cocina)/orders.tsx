@@ -17,7 +17,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { SegmentedTabs } from '@/components/SegmentedTabs';
 import { clasificarComanda, minutosDeEspera, useKitchen } from '@/context/kitchen-context';
 import { AvisoSinConexion } from '@/kitchen/AvisoSinConexion';
-import { ESTADO_DETALLE, type ComandaCocina } from '@/lib/kitchen-network';
+import { ESTADO_DETALLE, etiquetaComanda, type ComandaCocina } from '@/lib/kitchen-network';
 import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme';
 
 // Cada 30 s se recalcula la espera de las tarjetas; más seguido no cambia el minuto mostrado
@@ -67,7 +67,7 @@ export default function CocinaOrdersScreen() {
         activeOpacity={0.8}
         onPress={() => router.push(`/(cocina)/order-detail?id=${item.id_comanda}`)}
         accessibilityRole="button"
-        accessibilityLabel={`Mesa ${item.num_mesa}, ${productosVisibles.length} productos, ${minutos} minutos de espera, ${
+        accessibilityLabel={`${etiquetaComanda(item)}, ${productosVisibles.length} productos, ${minutos} minutos de espera, ${
           tabActual === 'preparacion' ? 'en preparación' : 'listo'
         }`}
         accessibilityHint="Abre el detalle de la comanda"
@@ -81,7 +81,7 @@ export default function CocinaOrdersScreen() {
         {/* Información central: Mesa y lista de platillos */}
         <View style={estilos.infoCentral}>
           <Text style={[estilos.mesaTitulo, { color: colores.text }]}>
-            Mesa {item.num_mesa}
+            {etiquetaComanda(item)}
           </Text>
 
           {productosVisibles.map((d) => (

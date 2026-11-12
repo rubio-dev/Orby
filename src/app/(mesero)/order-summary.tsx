@@ -26,6 +26,8 @@ export default function MeseroOrderSummaryScreen() {
   const {
     carrito,
     mesaSeleccionada,
+    tipoServicio,
+    nombreCliente,
     actualizarEspecificaciones,
     quitarDelCarrito,
     enviarComandaACocina,
@@ -34,10 +36,17 @@ export default function MeseroOrderSummaryScreen() {
   const [cargando, setCargando] = useState(false);
 
   const total = carrito.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
+  const esLlevar = tipoServicio === 'llevar';
+  const tituloPedido = esLlevar ? 'Para llevar' : `Mesa ${mesaSeleccionada}`;
 
   const handleEnviarCocina = async () => {
     if (carrito.length === 0) {
       mostrarAviso('Sin productos', 'El pedido no contiene productos.');
+      return;
+    }
+
+    if (esLlevar && !nombreCliente.trim()) {
+      mostrarAviso('Falta el nombre', 'Escribe el nombre del cliente para el pedido para llevar.');
       return;
     }
 
@@ -48,11 +57,13 @@ export default function MeseroOrderSummaryScreen() {
     if (resultado.exito) {
       mostrarAviso(
         '¡Comanda enviada!',
-        `El pedido de la Mesa ${mesaSeleccionada} por un total de $${total} fue enviado exitosamente a la cocina.`,
+        esLlevar
+          ? `El pedido para llevar de ${nombreCliente.trim()} por un total de $${total} fue enviado a la cocina.`
+          : `El pedido de la Mesa ${mesaSeleccionada} por un total de $${total} fue enviado exitosamente a la cocina.`,
         [
           {
-            text: 'Ver mesas',
-            onPress: () => router.replace('/(mesero)/tables'),
+            text: esLlevar ? 'Volver al inicio' : 'Ver mesas',
+            onPress: () => router.replace(esLlevar ? '/(mesero)' : '/(mesero)/tables'),
           },
         ]
       );
@@ -64,7 +75,7 @@ export default function MeseroOrderSummaryScreen() {
   return (
     <SafeAreaView style={[estilos.pantalla, { backgroundColor: colores.background }]} edges={['top']}>
       <ScreenHeader
-        titulo={`Mesa ${mesaSeleccionada}`}
+        titulo={tituloPedido}
         onBack={() => router.back()}
       />
 
@@ -77,6 +88,21 @@ export default function MeseroOrderSummaryScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {esLlevar && (
+            <View
+              accessible
+              accessibilityLabel={`Pedido para llevar de ${nombreCliente}`}
+              style={[estilos.tarjetaCliente, { backgroundColor: colores.primary_soft }]}
+            >
+              <Text style={[estilos.clienteEtiqueta, { color: colores.primary_strong }]}>
+                Para llevar
+              </Text>
+              <Text style={[estilos.clienteNombre, { color: colores.text }]}>
+                {nombreCliente}
+              </Text>
+            </View>
+          )}
+
           {carrito.map((item) => (
             <View
               key={item.id_producto}
@@ -177,6 +203,22 @@ const estilos = StyleSheet.create({
     paddingHorizontal: espaciado.pantalla,
     paddingBottom: espaciado.xxl,
     gap: espaciado.md,
+  },
+  tarjetaCliente: {
+    borderRadius: radios.xl,
+    padding: espaciado.md,
+    marginBottom: espaciado.xs,
+  },
+  clienteEtiqueta: {
+    fontFamily: fuentes.bold,
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  clienteNombre: {
+    fontFamily: fuentes.bold,
+    fontSize: 20,
+    marginTop: 2,
   },
   tarjetaItem: {
     borderWidth: 1.5,

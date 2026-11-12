@@ -4,6 +4,16 @@ Cada decisión lleva su fecha, qué se decidió y por qué. Las más recientes v
 
 ---
 
+## 2026-11-13: Comer aquí o para llevar; la mesa se ocupa y se cierra
+
+- **Decisión:** una comanda ahora tiene `tipo_servicio` (`mesa` o `llevar`). Las de mesa llevan `id_mesa`; las de llevar lo dejan en `NULL` y guardan `nombre_cliente` para llamar al cliente.
+- **Mesa ocupada:** al enviar un pedido de mesa, la función `crear_comanda` marca la mesa como ocupada en la misma transacción. Si ya había una cuenta abierta, los productos se agregan a esa cuenta; no se crea una segunda.
+- **Bloqueo:** las mesas apartadas o inactivas no aceptan pedidos. La pantalla de mesas ya no ofrece “Libre” cuando hay una cuenta abierta: ofrece **Agregar productos a la cuenta** o **Cerrar cuenta y liberar mesa**.
+- **Cierre:** la nueva función `cerrar_comanda(id_mesa)` marca la comanda como cerrada (`id_estado = 2`) y libera la mesa (`id_estado = 1`) en una transacción. Así las ventas del administrador ya reflejan las cuentas cerradas.
+- **Realtime:** `mesa` se agregó a la publicación de Realtime y `OrdersProvider` actualiza el estado de las mesas al instante. Dos meseros ya no ven la misma mesa como libre.
+- **Accesibilidad:** botones, campos, pestañas, navegación inferior y tarjetas de mesas/productos/comandas tienen `accessibilityRole`, `accessibilityLabel`, `accessibilityState` e indicaciones. Los objetivos táctiles de iconos y pestañas son de al menos 44×44, y los errores/totales usan live regions.
+- **Consecuencia:** hay que aplicar las migraciones `20261113000000` a `20261113000003` en local y en la nube. El cobro sigue fuera de la app.
+
 ## 2026-11-12: La app no tiene modo demo; las cuentas del equipo son reales
 
 - **Decisión:** se eliminan de `src/` los usuarios demo, el personal local, las mesas/comandas/notificaciones iniciales, los productos/categorías de ejemplo y las estadísticas fijas. La app arranca vacía y todo sale de Supabase.

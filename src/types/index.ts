@@ -56,6 +56,8 @@ export type Mesa = {
 
 export type EstadoComanda = 'pendiente' | 'en preparación' | 'listo' | 'entregada' | 'cancelada';
 
+export type TipoServicio = 'mesa' | 'llevar';
+
 export type DetalleComanda = {
   id_detalle: string;
   id_comanda: string;
@@ -71,8 +73,10 @@ export type DetalleComanda = {
 export type Comanda = {
   id_comanda: string;
   id_cafeteria?: string;
-  id_mesa: string;
-  num_mesa: number;
+  id_mesa: string; // '' en pedidos para llevar
+  num_mesa: number; // 0 en pedidos para llevar
+  tipo_servicio: TipoServicio;
+  nombre_cliente?: string | null;
   id_usuario: string;
   nombre_mesero?: string;
   id_estado: number;
