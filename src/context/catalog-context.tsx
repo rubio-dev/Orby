@@ -18,6 +18,16 @@ import {
 } from "@/lib/auth";
 import { supabase_configurado } from "@/lib/env";
 import { obtener_supabase } from "@/lib/supabase";
+import {
+  FORMATOS_IMAGEN_PERMITIDOS,
+  MAX_IMAGEN_BYTES,
+  limpiar_espacios,
+  normalizar_mime_imagen,
+  normalizar_para_comparar,
+  validar_nombre_categoria,
+  validar_nombre_producto,
+  validar_precio_producto,
+} from "@/lib/validation";
 import type { Categoria, EstadisticasVenta, Producto } from "@/types";
 
 export type CallbackReintento = (
@@ -28,6 +38,7 @@ export type ResultadoOperacionCatalogo = {
   exito: boolean;
   enCola?: boolean;
   error?: string;
+  aviso?: string; // Explica una acción alternativa, por ejemplo un borrado lógico
 };
 
 type OperacionColaCatalogo = {
@@ -147,15 +158,33 @@ async function subirImagenProductoStorage(
       }
     }
 
+    const mimeNormalizado = normalizar_mime_imagen(contentType) ?? "image/jpeg";
+
+    if (
+      !FORMATOS_IMAGEN_PERMITIDOS.includes(
+        mimeNormalizado as (typeof FORMATOS_IMAGEN_PERMITIDOS)[number],
+      )
+    ) {
+      return {
+        urlPublica: null,
+        fallo_red: false,
+        error: "Formato no permitido. Usa una imagen JPG, PNG o WEBP.",
+      };
+    }
+
+    if (arrayBuffer.byteLength > MAX_IMAGEN_BYTES) {
+      return {
+        urlPublica: null,
+        fallo_red: false,
+        error: `La imagen pesa ${(arrayBuffer.byteLength / (1024 * 1024)).toFixed(1)} MB. El máximo es 5 MB.`,
+      };
+    }
+
     let extension = ".jpg";
-    if (contentType.includes("png")) {
+    if (mimeNormalizado.includes("png")) {
       extension = ".png";
-    } else if (contentType.includes("webp")) {
+    } else if (mimeNormalizado.includes("webp")) {
       extension = ".webp";
-    } else if (contentType.includes("gif")) {
-      extension = ".gif";
-    } else if (contentType.includes("jpeg") || contentType.includes("jpg")) {
-      extension = ".jpg";
     }
 
     const rutaArchivo = `${idCafeteria}/${idProducto}-${Date.now()}${extension}`;
@@ -166,7 +195,7 @@ async function subirImagenProductoStorage(
         await supabase.storage
           .from("productos")
           .upload(rutaArchivo, arrayBuffer, {
-            contentType,
+            contentType: mimeNormalizado,
             upsert: true,
           }),
       alReintentar,
@@ -983,6 +1012,30 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     nuevo: Omit<Producto, "id_producto">,
     alReintentar?: CallbackReintento,
   ): Promise<ResultadoOperacionCatalogo> => {
+    const nombreLimpio = limpiar_espacios(nuevo.nombre_producto);
+    const errorNombre = validar_nombre_producto(nombreLimpio);
+    if (errorNombre) {
+      return { exito: false, error: errorNombre };
+    }
+
+    const precioNumero = Number(nuevo.precio);
+    const errorPrecio = validar_precio_producto(precioNumero);
+    if (errorPrecio) {
+      return { exito: false, error: errorPrecio };
+    }
+
+    const nombreNormalizado = normalizar_para_comparar(nombreLimpio);
+    if (
+      productos.some(
+        (p) => normalizar_para_comparar(p.nombre_producto) === nombreNormalizado,
+      )
+    ) {
+      return {
+        exito: false,
+        error: "Ya existe un producto con ese nombre en esta cafetería. Usa otro nombre.",
+      };
+    }
+
     const idNuevo = generarUuid();
     const catEncontrada = categorias.find(
       (c) => c.id_categoria === nuevo.id_categoria,
@@ -991,10 +1044,11 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       ...nuevo,
       id_producto: idNuevo,
       id_cafeteria: idCafeteria ?? "00000000-0000-0000-0000-000000000001",
+      nombre_producto: nombreLimpio,
       nombre_categoria:
         catEncontrada?.nombre_categoria ?? nuevo.nombre_categoria ?? "General",
       descripcion: nuevo.descripcion ?? "",
-      precio: Number(nuevo.precio),
+      precio: precioNumero,
       imagen_url: nuevo.imagen_url,
       estado: nuevo.estado ?? true,
     };
@@ -1026,9 +1080,9 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
             id_producto: idNuevo,
             id_cafeteria: idCafeteria,
             id_categoria: nuevo.id_categoria,
-            nombre_producto: nuevo.nombre_producto,
+            nombre_producto: nombreLimpio,
             descripcion: nuevo.descripcion ?? "",
-            precio: Number(nuevo.precio),
+            precio: precioNumero,
             imagen_url: nuevo.imagen_url,
             estado: nuevo.estado ?? true,
           },
@@ -1053,9 +1107,9 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       id_producto: idNuevo,
       id_cafeteria: idCafeteria,
       id_categoria: nuevo.id_categoria,
-      nombre_producto: nuevo.nombre_producto,
+      nombre_producto: nombreLimpio,
       descripcion: nuevo.descripcion ?? "",
-      precio: Number(nuevo.precio),
+      precio: precioNumero,
       imagen_url: urlFinal,
       estado: nuevo.estado ?? true,
     };
@@ -1096,6 +1150,38 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     cambios: Partial<Omit<Producto, "id_producto">>,
     alReintentar?: CallbackReintento,
   ): Promise<ResultadoOperacionCatalogo> => {
+    const nombreLimpio =
+      cambios.nombre_producto !== undefined
+        ? limpiar_espacios(cambios.nombre_producto)
+        : undefined;
+
+    if (nombreLimpio !== undefined) {
+      const errorNombre = validar_nombre_producto(nombreLimpio);
+      if (errorNombre) {
+        return { exito: false, error: errorNombre };
+      }
+
+      const nombreNormalizado = normalizar_para_comparar(nombreLimpio);
+      const duplicado = productos.some(
+        (p) =>
+          p.id_producto !== id_producto &&
+          normalizar_para_comparar(p.nombre_producto) === nombreNormalizado,
+      );
+      if (duplicado) {
+        return {
+          exito: false,
+          error: "Ya existe otro producto con ese nombre en esta cafetería.",
+        };
+      }
+    }
+
+    if (cambios.precio !== undefined) {
+      const errorPrecio = validar_precio_producto(Number(cambios.precio));
+      if (errorPrecio) {
+        return { exito: false, error: errorPrecio };
+      }
+    }
+
     const catEncontrada = cambios.id_categoria
       ? categorias.find((c) => c.id_categoria === cambios.id_categoria)
       : undefined;
@@ -1124,7 +1210,10 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       return { exito: true, enCola: false };
     }
 
-    const cambiosEfectivos = { ...cambios };
+    const cambiosEfectivos: Partial<Omit<Producto, "id_producto">> = {
+      ...cambios,
+      ...(nombreLimpio !== undefined ? { nombre_producto: nombreLimpio } : {}),
+    };
 
     if (esImagenLocal(cambios.imagen_url)) {
       const subida = await subirImagenProductoStorage(
@@ -1135,11 +1224,11 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       );
 
       if (subida.fallo_red) {
-        const actualizados = aplicarCambiosLocal(productos, cambios);
+        const actualizados = aplicarCambiosLocal(productos, cambiosEfectivos);
         await guardarProductos(actualizados);
         const payloadOffline: Record<string, unknown> = {};
-        if (cambios.nombre_producto !== undefined)
-          payloadOffline.nombre_producto = cambios.nombre_producto;
+        if (cambiosEfectivos.nombre_producto !== undefined)
+          payloadOffline.nombre_producto = cambiosEfectivos.nombre_producto;
         if (cambios.descripcion !== undefined)
           payloadOffline.descripcion = cambios.descripcion;
         if (cambios.precio !== undefined)
@@ -1222,16 +1311,60 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     id_producto: string,
     alReintentar?: CallbackReintento,
   ): Promise<ResultadoOperacionCatalogo> => {
-    if (!supabase_configurado || !idCafeteria || !esUuidValido(idCafeteria)) {
-      const actualizados = productos.filter(
-        (p) => p.id_producto !== id_producto,
+    const desactivar = async (enColaEsperada: boolean, aviso: string) => {
+      const resultado = await editarProducto(
+        id_producto,
+        { estado: false },
+        alReintentar,
       );
-      await guardarProductos(actualizados);
-      return { exito: true, enCola: false };
+      if (!resultado.exito) return resultado;
+      return {
+        ...resultado,
+        enCola: resultado.enCola ?? enColaEsperada,
+        aviso,
+      };
+    };
+
+    const avisoHistorial =
+      "El producto ya aparece en comandas del historial. En lugar de borrarlo, se desactivó: deja de venderse, pero las ventas anteriores se conservan.";
+    const avisoSinVerificar =
+      "No se pudo verificar el historial sin conexión. El producto se desactivó en este dispositivo y el cambio se sincronizará al reconectar.";
+
+    // Sin Supabase configurado no se puede consultar el historial. Se desactiva en local
+    // para no perder las comandas de prueba que pudieran existir.
+    if (!supabase_configurado || !idCafeteria || !esUuidValido(idCafeteria)) {
+      return desactivar(false, avisoSinVerificar);
     }
 
     const supabase = obtener_supabase();
-    const { resultado, fallo_red } = await con_reintentos(
+
+    // Antes de borrar se busca si alguna comanda histórica usa este producto.
+    // La llave foránea impediría el DELETE y, si se forzara, se perdería el historial.
+    const { resultado: referencias, fallo_red } = await con_reintentos(
+      async () =>
+        await supabase
+          .from("detalle_comanda")
+          .select("id_detalle")
+          .eq("id_producto", id_producto)
+          .limit(1),
+      alReintentar,
+    );
+
+    if (fallo_red) {
+      // Sin conexión no se puede verificar el historial: se desactiva y se encola.
+      return desactivar(true, avisoSinVerificar);
+    }
+
+    if (referencias?.error) {
+      return { exito: false, error: traducir_error(referencias.error) };
+    }
+
+    if ((referencias?.data ?? []).length > 0) {
+      return desactivar(false, avisoHistorial);
+    }
+
+    // Producto sin ventas: se puede borrar de verdad.
+    const { resultado, fallo_red: falloBorrado } = await con_reintentos(
       async () =>
         await supabase
           .from("producto")
@@ -1241,7 +1374,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
       alReintentar,
     );
 
-    if (fallo_red) {
+    if (falloBorrado) {
       const actualizados = productos.filter(
         (p) => p.id_producto !== id_producto,
       );
@@ -1267,11 +1400,21 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     nombre_categoria: string,
     alReintentar?: CallbackReintento,
   ): Promise<ResultadoOperacionCatalogo> => {
-    const nombreLimpio = nombre_categoria.trim();
-    if (!nombreLimpio) {
+    const nombreLimpio = limpiar_espacios(nombre_categoria);
+    const errorNombre = validar_nombre_categoria(nombreLimpio);
+    if (errorNombre) {
+      return { exito: false, error: errorNombre };
+    }
+
+    const nombreNormalizado = normalizar_para_comparar(nombreLimpio);
+    if (
+      categorias.some(
+        (c) => normalizar_para_comparar(c.nombre_categoria) === nombreNormalizado,
+      )
+    ) {
       return {
         exito: false,
-        error: "El nombre de la categoría no puede estar vacío.",
+        error: "Ya existe una categoría con ese nombre en esta cafetería.",
       };
     }
 
@@ -1330,11 +1473,23 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     nombre_categoria: string,
     alReintentar?: CallbackReintento,
   ): Promise<ResultadoOperacionCatalogo> => {
-    const nombreLimpio = nombre_categoria.trim();
-    if (!nombreLimpio) {
+    const nombreLimpio = limpiar_espacios(nombre_categoria);
+    const errorNombre = validar_nombre_categoria(nombreLimpio);
+    if (errorNombre) {
+      return { exito: false, error: errorNombre };
+    }
+
+    const nombreNormalizado = normalizar_para_comparar(nombreLimpio);
+    if (
+      categorias.some(
+        (c) =>
+          c.id_categoria !== id_categoria &&
+          normalizar_para_comparar(c.nombre_categoria) === nombreNormalizado,
+      )
+    ) {
       return {
         exito: false,
-        error: "El nombre de la categoría no puede estar vacío.",
+        error: "Ya existe otra categoría con ese nombre en esta cafetería.",
       };
     }
 

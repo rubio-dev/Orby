@@ -65,12 +65,35 @@ const MESES_CORTOS = [
   'Dic',
 ];
 
-const ANIOS = [2024, 2025, 2026, 2027];
+const ANIO_ACTUAL = new Date().getFullYear();
+// Solo se ofrecen años con datos posibles: desde 2024 hasta el año en curso.
+const ANIOS = Array.from({ length: Math.max(1, ANIO_ACTUAL - 2023) }, (_, i) => 2024 + i);
 
 const pad2 = (num: number) => num.toString().padStart(2, '0');
 const formatearFechaDDMMAAAA = (fecha: Date) =>
   `${pad2(fecha.getDate())}/${pad2(fecha.getMonth() + 1)}/${fecha.getFullYear()}`;
 const obtenerDiasEnMes = (anio: number, mes: number) => new Date(anio, mes + 1, 0).getDate();
+
+// Los reportes son de ventas ya ocurridas: no se permite elegir fechas futuras.
+const finDelDia = (fecha: Date) => {
+  const copia = new Date(fecha);
+  copia.setHours(23, 59, 59, 999);
+  return copia;
+};
+const hoyFinDelDia = () => finDelDia(new Date());
+const esFechaFutura = (anio: number, mes: number, dia: number) =>
+  new Date(anio, mes, dia, 12, 0, 0, 0).getTime() > hoyFinDelDia().getTime();
+const esMesFuturo = (anio: number, mes: number) => {
+  const ahora = new Date();
+  return anio > ahora.getFullYear() || (anio === ahora.getFullYear() && mes > ahora.getMonth());
+};
+const diaMaximoPermitido = (anio: number, mes: number) => {
+  const ahora = new Date();
+  if (anio === ahora.getFullYear() && mes === ahora.getMonth()) {
+    return ahora.getDate();
+  }
+  return obtenerDiasEnMes(anio, mes);
+};
 
 export default function AdminHomeScreen() {
   const router = useRouter();
@@ -87,7 +110,9 @@ export default function AdminHomeScreen() {
 
   // Estados de selección de fecha dinámica
   const hoyInicial = useMemo(() => new Date(), []);
-  const anioPorDefecto = ANIOS.includes(hoyInicial.getFullYear()) ? hoyInicial.getFullYear() : 2026;
+  const anioPorDefecto = ANIOS.includes(hoyInicial.getFullYear())
+    ? hoyInicial.getFullYear()
+    : ANIO_ACTUAL;
 
   // 1. Pestaña Día
   const [diaDia, setDiaDia] = useState<number>(hoyInicial.getDate());
@@ -128,8 +153,7 @@ export default function AdminHomeScreen() {
     const d = new Date();
     setDiaDia(d.getDate());
     setMesDia(d.getMonth());
-    const anio = d.getFullYear();
-    setAnioDia(ANIOS.includes(anio) ? anio : 2026);
+    setAnioDia(d.getFullYear());
   };
 
   const seleccionarAyer = () => {
@@ -137,32 +161,61 @@ export default function AdminHomeScreen() {
     d.setDate(d.getDate() - 1);
     setDiaDia(d.getDate());
     setMesDia(d.getMonth());
-    const anio = d.getFullYear();
-    setAnioDia(ANIOS.includes(anio) ? anio : 2026);
+    setAnioDia(d.getFullYear());
   };
 
   const handleCambiarMesDia = (nuevoMes: number) => {
+    if (esMesFuturo(anioDia, nuevoMes)) return;
     setMesDia(nuevoMes);
-    const max = obtenerDiasEnMes(anioDia, nuevoMes);
+    const max = diaMaximoPermitido(anioDia, nuevoMes);
     if (diaDia > max) setDiaDia(max);
   };
 
   const handleCambiarAnioDia = (nuevoAnio: number) => {
+    if (nuevoAnio > ANIO_ACTUAL) return;
+    const ahora = new Date();
+    const mesAjustado =
+      nuevoAnio === ahora.getFullYear() && mesDia > ahora.getMonth()
+        ? ahora.getMonth()
+        : mesDia;
     setAnioDia(nuevoAnio);
-    const max = obtenerDiasEnMes(nuevoAnio, mesDia);
+    setMesDia(mesAjustado);
+    const max = diaMaximoPermitido(nuevoAnio, mesAjustado);
     if (diaDia > max) setDiaDia(max);
   };
 
   const handleCambiarMesSemana = (nuevoMes: number) => {
+    if (esMesFuturo(anioSemana, nuevoMes)) return;
     setMesSemana(nuevoMes);
-    const max = obtenerDiasEnMes(anioSemana, nuevoMes);
+    const max = diaMaximoPermitido(anioSemana, nuevoMes);
     if (diaSemana > max) setDiaSemana(max);
   };
 
   const handleCambiarAnioSemana = (nuevoAnio: number) => {
+    if (nuevoAnio > ANIO_ACTUAL) return;
+    const ahora = new Date();
+    const mesAjustado =
+      nuevoAnio === ahora.getFullYear() && mesSemana > ahora.getMonth()
+        ? ahora.getMonth()
+        : mesSemana;
     setAnioSemana(nuevoAnio);
-    const max = obtenerDiasEnMes(nuevoAnio, mesSemana);
+    setMesSemana(mesAjustado);
+    const max = diaMaximoPermitido(nuevoAnio, mesAjustado);
     if (diaSemana > max) setDiaSemana(max);
+  };
+
+  const handleCambiarMesMes = (nuevoMes: number) => {
+    if (esMesFuturo(anioMes, nuevoMes)) return;
+    setMesMes(nuevoMes);
+  };
+
+  const handleCambiarAnioMes = (nuevoAnio: number) => {
+    if (nuevoAnio > ANIO_ACTUAL) return;
+    const ahora = new Date();
+    if (nuevoAnio === ahora.getFullYear() && mesMes > ahora.getMonth()) {
+      setMesMes(ahora.getMonth());
+    }
+    setAnioMes(nuevoAnio);
   };
 
   const calcularRangoFechas = useCallback(
@@ -171,7 +224,7 @@ export default function AdminHomeScreen() {
         const maxDias = obtenerDiasEnMes(anioDia, mesDia);
         const diaAjustado = Math.min(diaDia, maxDias);
         const inicio = new Date(anioDia, mesDia, diaAjustado, 0, 0, 0, 0);
-        const fin = new Date(anioDia, mesDia, diaAjustado, 23, 59, 59, 999);
+        const fin = finDelDia(new Date(anioDia, mesDia, diaAjustado));
         const diaStr = formatearFechaDDMMAAAA(inicio);
         return {
           inicio,
@@ -184,9 +237,10 @@ export default function AdminHomeScreen() {
         const maxDias = obtenerDiasEnMes(anioSemana, mesSemana);
         const diaAjustado = Math.min(diaSemana, maxDias);
         const inicio = new Date(anioSemana, mesSemana, diaAjustado, 0, 0, 0, 0);
-        const fin = new Date(inicio);
-        fin.setDate(fin.getDate() + 6);
-        fin.setHours(23, 59, 59, 999);
+        const finSemana = finDelDia(new Date(inicio));
+        finSemana.setDate(finSemana.getDate() + 6);
+        // Si la semana incluye días que todavía no pasan, el reporte corta en hoy.
+        const fin = new Date(Math.min(finSemana.getTime(), hoyFinDelDia().getTime()));
         return {
           inicio,
           fin,
@@ -196,7 +250,8 @@ export default function AdminHomeScreen() {
 
       // Por Mes
       const inicio = new Date(anioMes, mesMes, 1, 0, 0, 0, 0);
-      const fin = new Date(anioMes, mesMes + 1, 0, 23, 59, 59, 999);
+      const finMes = finDelDia(new Date(anioMes, mesMes + 1, 0));
+      const fin = new Date(Math.min(finMes.getTime(), hoyFinDelDia().getTime()));
       return {
         inicio,
         fin,
@@ -209,6 +264,14 @@ export default function AdminHomeScreen() {
   const rangoActual = useMemo(() => calcularRangoFechas(tipoPeriodo), [calcularRangoFechas, tipoPeriodo]);
 
   const handleGenerarYCompartirPdf = async () => {
+    // Defensa extra: los filtros ya bloquean fechas futuras, pero el rango se vuelve
+    // a revisar por si la pantalla quedó abierta y cambió la fecha del dispositivo.
+    const { inicio: inicioRango } = calcularRangoFechas(tipoPeriodo);
+    if (inicioRango.getTime() > Date.now()) {
+      mostrarAviso('Fecha futura', 'Elige una fecha que ya haya ocurrido para generar el reporte.');
+      return;
+    }
+
     // 1. Verificación previa de conectividad
     const hayConexion = await verificarConexionServidor(2500);
     if (!hayConexion) {
@@ -559,16 +622,18 @@ export default function AdminHomeScreen() {
                   <View style={estilos.filaChips}>
                     {ANIOS.map((anio) => {
                       const sel = anioDia === anio;
+                      const futuro = anio > ANIO_ACTUAL;
                       return (
                         <TouchableOpacity
                           key={anio}
-                          disabled={generandoReporte}
+                          disabled={generandoReporte || futuro}
                           onPress={() => handleCambiarAnioDia(anio)}
                           style={[
                             estilos.chipPequeno,
                             {
                               backgroundColor: sel ? colores.primary : colores.surface_muted,
                               borderColor: sel ? colores.primary : colores.border,
+                              opacity: futuro ? 0.4 : 1,
                             },
                           ]}
                         >
@@ -593,16 +658,18 @@ export default function AdminHomeScreen() {
                   <View style={estilos.rejillaMesesCortos}>
                     {MESES_CORTOS.map((mesNombre, idx) => {
                       const sel = mesDia === idx;
+                      const futuro = esMesFuturo(anioDia, idx);
                       return (
                         <TouchableOpacity
                           key={mesNombre}
-                          disabled={generandoReporte}
+                          disabled={generandoReporte || futuro}
                           onPress={() => handleCambiarMesDia(idx)}
                           style={[
                             estilos.botonMesCorto,
                             {
                               backgroundColor: sel ? colores.primary : colores.surface_muted,
                               borderColor: sel ? colores.primary : colores.border,
+                              opacity: futuro ? 0.4 : 1,
                             },
                           ]}
                         >
@@ -627,16 +694,18 @@ export default function AdminHomeScreen() {
                   <View style={estilos.rejillaDias}>
                     {Array.from({ length: maxDiasPestanaDia }, (_, i) => i + 1).map((dia) => {
                       const sel = diaDia === dia;
+                      const futuro = esFechaFutura(anioDia, mesDia, dia);
                       return (
                         <TouchableOpacity
                           key={dia}
-                          disabled={generandoReporte}
+                          disabled={generandoReporte || futuro}
                           onPress={() => setDiaDia(dia)}
                           style={[
                             estilos.chipDiaCuadricula,
                             {
                               backgroundColor: sel ? colores.primary : colores.surface_muted,
                               borderColor: sel ? colores.primary : colores.border,
+                              opacity: futuro ? 0.4 : 1,
                             },
                           ]}
                         >
@@ -669,16 +738,18 @@ export default function AdminHomeScreen() {
                   <View style={estilos.filaChips}>
                     {ANIOS.map((anio) => {
                       const sel = anioSemana === anio;
+                      const futuro = anio > ANIO_ACTUAL;
                       return (
                         <TouchableOpacity
                           key={anio}
-                          disabled={generandoReporte}
+                          disabled={generandoReporte || futuro}
                           onPress={() => handleCambiarAnioSemana(anio)}
                           style={[
                             estilos.chipPequeno,
                             {
                               backgroundColor: sel ? colores.primary : colores.surface_muted,
                               borderColor: sel ? colores.primary : colores.border,
+                              opacity: futuro ? 0.4 : 1,
                             },
                           ]}
                         >
@@ -703,16 +774,18 @@ export default function AdminHomeScreen() {
                   <View style={estilos.rejillaMesesCortos}>
                     {MESES_CORTOS.map((mesNombre, idx) => {
                       const sel = mesSemana === idx;
+                      const futuro = esMesFuturo(anioSemana, idx);
                       return (
                         <TouchableOpacity
                           key={mesNombre}
-                          disabled={generandoReporte}
+                          disabled={generandoReporte || futuro}
                           onPress={() => handleCambiarMesSemana(idx)}
                           style={[
                             estilos.botonMesCorto,
                             {
                               backgroundColor: sel ? colores.primary : colores.surface_muted,
                               borderColor: sel ? colores.primary : colores.border,
+                              opacity: futuro ? 0.4 : 1,
                             },
                           ]}
                         >
@@ -737,16 +810,18 @@ export default function AdminHomeScreen() {
                   <View style={estilos.rejillaDias}>
                     {Array.from({ length: maxDiasPestanaSemana }, (_, i) => i + 1).map((dia) => {
                       const sel = diaSemana === dia;
+                      const futuro = esFechaFutura(anioSemana, mesSemana, dia);
                       return (
                         <TouchableOpacity
                           key={dia}
-                          disabled={generandoReporte}
+                          disabled={generandoReporte || futuro}
                           onPress={() => setDiaSemana(dia)}
                           style={[
                             estilos.chipDiaCuadricula,
                             {
                               backgroundColor: sel ? colores.primary : colores.surface_muted,
                               borderColor: sel ? colores.primary : colores.border,
+                              opacity: futuro ? 0.4 : 1,
                             },
                           ]}
                         >
@@ -775,16 +850,18 @@ export default function AdminHomeScreen() {
                   <View style={estilos.filaChips}>
                     {ANIOS.map((anio) => {
                       const sel = anioMes === anio;
+                      const futuro = anio > ANIO_ACTUAL;
                       return (
                         <TouchableOpacity
                           key={anio}
-                          disabled={generandoReporte}
-                          onPress={() => setAnioMes(anio)}
+                          disabled={generandoReporte || futuro}
+                          onPress={() => handleCambiarAnioMes(anio)}
                           style={[
                             estilos.chipPequeno,
                             {
                               backgroundColor: sel ? colores.primary : colores.surface_muted,
                               borderColor: sel ? colores.primary : colores.border,
+                              opacity: futuro ? 0.4 : 1,
                             },
                           ]}
                         >
@@ -809,16 +886,18 @@ export default function AdminHomeScreen() {
                   <View style={estilos.rejillaMeses}>
                     {MESES.map((nombreCompleto, idx) => {
                       const sel = mesMes === idx;
+                      const futuro = esMesFuturo(anioMes, idx);
                       return (
                         <TouchableOpacity
                           key={nombreCompleto}
-                          disabled={generandoReporte}
-                          onPress={() => setMesMes(idx)}
+                          disabled={generandoReporte || futuro}
+                          onPress={() => handleCambiarMesMes(idx)}
                           style={[
                             estilos.botonMesCuadricula,
                             {
                               backgroundColor: sel ? colores.primary : colores.surface_muted,
                               borderColor: sel ? colores.primary : colores.border,
+                              opacity: futuro ? 0.4 : 1,
                             },
                           ]}
                         >

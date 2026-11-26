@@ -21,6 +21,7 @@ import { useAuth } from '@/context/auth-context';
 import { useOrders } from '@/context/orders-context';
 import { mostrarAviso } from '@/lib/confirm';
 import { obtenerNombreCafeteria } from '@/lib/pdf-report';
+import { MAX_LARGO_ESPECIFICACIONES, validar_nombre_cliente } from '@/lib/validation';
 import { espaciado, fuentes, radios, useTema } from '@/theme';
 import type { Comanda, MetodoPago } from '@/types';
 
@@ -70,9 +71,12 @@ export default function MeseroOrderSummaryScreen() {
 
     const nombrePedido = nombreCliente.trim();
 
-    if (esLlevar && !nombrePedido) {
-      mostrarAviso('Falta el nombre', 'Escribe el nombre del cliente para el pedido para llevar.');
-      return;
+    if (esLlevar) {
+      const errorNombre = validar_nombre_cliente(nombrePedido);
+      if (errorNombre) {
+        mostrarAviso('Revisa el nombre', errorNombre);
+        return;
+      }
     }
 
     if (esLlevar && !metodoPago) {
@@ -242,10 +246,14 @@ export default function MeseroOrderSummaryScreen() {
                   onChangeText={(texto) => actualizarEspecificaciones(item.id_producto, texto)}
                   placeholder="Descripción (ej. sin cebolla, salsa aparte)"
                   placeholderTextColor={colores.text_muted}
+                  maxLength={MAX_LARGO_ESPECIFICACIONES}
                   accessibilityLabel={`Especificaciones de ${item.nombre_producto}`}
                   accessibilityHint="Escribe instrucciones para cocina"
                   style={[estilos.inputEspecificaciones, { color: colores.text }]}
                 />
+                <Text style={[estilos.contadorEspecificaciones, { color: colores.text_muted }]}>
+                  {(item.especificaciones ?? '').length}/{MAX_LARGO_ESPECIFICACIONES}
+                </Text>
               </View>
             </View>
           ))}
@@ -407,6 +415,11 @@ const estilos = StyleSheet.create({
   inputEspecificaciones: {
     fontSize: 14,
     paddingVertical: 4,
+  },
+  contadorEspecificaciones: {
+    fontSize: 11,
+    textAlign: 'right',
+    marginTop: 2,
   },
   seccionTotal: {
     marginTop: espaciado.xl,

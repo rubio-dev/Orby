@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -20,6 +21,7 @@ import { useOrders } from '@/context/orders-context';
 import { mostrarAviso } from '@/lib/confirm';
 import { etiquetaComanda } from '@/lib/kitchen-network';
 import { obtenerNombreCafeteria } from '@/lib/pdf-report';
+import { parsear_precio } from '@/lib/validation';
 import { etiquetaMetodoPago } from '@/lib/voucher';
 import { espaciado, fuentes, radios, useTema } from '@/theme';
 import type { Comanda, MetodoPago } from '@/types';
@@ -48,6 +50,11 @@ export default function MeseroAccountScreen() {
   const [cobrando, setCobrando] = useState(false);
   const [entregando, setEntregando] = useState(false);
   const [modalPago, setModalPago] = useState(false);
+  // Propinas: el esquema actual no tiene una columna de propina en comanda ni un corte de
+  // caja que la registre. No se guarda solo en el teléfono para no descuadrar el voucher
+  // ni los reportes; si el negocio las maneja, primero debe agregarse a la base y al voucher.
+  const [metodoSeleccionado, setMetodoSeleccionado] = useState<MetodoPago | null>(null);
+  const [montoRecibido, setMontoRecibido] = useState('');
   const [voucher, setVoucher] = useState<Comanda | null>(null);
   const [nombreCafeteria, setNombreCafeteria] = useState('Cafetería');
 
@@ -75,8 +82,9 @@ export default function MeseroAccountScreen() {
   const detalles = comanda?.detalles.filter((d) => d.id_estado !== 5) ?? [];
   const hayListos = detalles.some((d) => d.id_estado === 3);
   const hayPendientes = detalles.some((d) => d.id_estado === 1 || d.id_estado === 2);
-  const todosEntregados =
-    detalles.length > 0 && detalles.every((d) => d.id_estado === 4);
+  // Un arreglo vacío también cuenta como "nada pendiente": por ejemplo, cuando la
+  // cocina canceló todos los productos y la cuenta quedó en $0.
+  const todosEntregados = detalles.every((d) => d.id_estado === 4);
 
   if (!comanda) {
     return (
@@ -93,6 +101,22 @@ export default function MeseroAccountScreen() {
   }
 
   const etiqueta = etiquetaComanda(comanda);
+  const totalCuenta = comanda.total;
+  const montoRecibidoNumero = parsear_precio(montoRecibido);
+  const cambio =
+    montoRecibidoNumero === null ? null : montoRecibidoNumero - totalCuenta;
+  const efectivoCubreTotal =
+    montoRecibidoNumero !== null && montoRecibidoNumero + 0.001 >= totalCuenta;
+  const puedeConfirmarPago =
+    metodoSeleccionado !== null &&
+    (metodoSeleccionado !== 'efectivo' || efectivoCubreTotal);
+
+  const cerrarModalPago = () => {
+    if (cobrando) return;
+    setModalPago(false);
+    setMetodoSeleccionado(null);
+    setMontoRecibido('');
+  };
 
   const handleEntregar = async () => {
     setEntregando(true);
@@ -112,14 +136,42 @@ export default function MeseroAccountScreen() {
 
   const handleCobrar = async (metodo: MetodoPago) => {
     if (!comanda.id_mesa) return;
+
+    if (metodo === 'efectivo') {
+      if (montoRecibidoNumero === null) {
+        mostrarAviso('Falta el monto', 'Escribe cuánto dinero recibiste del cliente.');
+        return;
+      }
+
+      if (!efectivoCubreTotal) {
+        mostrarAviso(
+          'Monto insuficiente',
+          `El cliente entregó $${montoRecibidoNumero.toFixed(2)} y el total es $${totalCuenta.toFixed(2)}.`
+        );
+        return;
+      }
+    }
+
     setCobrando(true);
     const numMesa = comanda.num_mesa;
     const resultado = await cerrarCuentaMesa(numMesa, metodo);
     setCobrando(false);
     setModalPago(false);
+    setMetodoSeleccionado(null);
+    setMontoRecibido('');
 
     if (resultado.exito) {
-      setVoucher(resultado.comanda ?? comanda);
+      const comandaCerrada = resultado.comanda ?? comanda;
+
+      if (metodo === 'efectivo' && cambio !== null && cambio > 0) {
+        mostrarAviso(
+          'Cobro registrado',
+          `Cambio para el cliente: $${cambio.toFixed(2)}.`,
+          [{ text: 'Ver voucher', onPress: () => setVoucher(comandaCerrada) }]
+        );
+      } else {
+        setVoucher(comandaCerrada);
+      }
     } else {
       mostrarAviso('No se pudo cobrar', resultado.error ?? 'Inténtalo de nuevo.');
     }
@@ -229,27 +281,49 @@ export default function MeseroAccountScreen() {
           </Text>
         )}
 
-        {abierta && hayListos && (
-          <CustomButton
-            titulo={entregando ? 'Marcando...' : 'Marcar productos listos como entregados'}
-            variante="secondary"
-            cargando={entregando}
-            deshabilitado={entregando}
-            onPress={handleEntregar}
-            accessibilityHint="Confirma que llevaste los productos listos a la mesa"
-          />
+        {abierta && (
+          <>
+            <CustomButton
+              titulo={entregando ? 'Marcando...' : 'Marcar productos listos como entregados'}
+              variante="secondary"
+              cargando={entregando}
+              deshabilitado={entregando || !hayListos}
+              onPress={handleEntregar}
+              accessibilityHint={
+                hayListos
+                  ? 'Confirma que llevaste los productos listos a la mesa'
+                  : 'Se habilita cuando la cocina marca algún producto como listo'
+              }
+            />
+
+            {!hayListos && (
+              <Text style={[estilos.aviso, { color: colores.text_muted }]}>
+                Todavía no hay productos listos para entregar.
+              </Text>
+            )}
+          </>
         )}
 
         {abierta && !esLlevar && (
           <>
-            {todosEntregados && (
-              <CustomButton
-                titulo="Cobrar y cerrar cuenta"
-                variante="primary"
-                onPress={() => setModalPago(true)}
-                accessibilityHint="Elige el método de pago y libera la mesa"
-              />
+            <CustomButton
+              titulo="Cobrar y cerrar cuenta"
+              variante="primary"
+              deshabilitado={!todosEntregados}
+              onPress={() => setModalPago(true)}
+              accessibilityHint={
+                todosEntregados
+                  ? 'Elige el método de pago y libera la mesa'
+                  : 'Se habilita cuando todos los productos estén entregados'
+              }
+            />
+
+            {!todosEntregados && (
+              <Text style={[estilos.aviso, { color: colores.warning }]}>
+                No puedes cobrar todavía: hay productos pendientes, en preparación o listos sin entregar.
+              </Text>
             )}
+
             <CustomButton
               titulo="Agregar más productos"
               variante="outline"
@@ -269,40 +343,118 @@ export default function MeseroAccountScreen() {
       </ScrollView>
 
       {/* Modal de método de pago */}
-      <Modal visible={modalPago} transparent animationType="fade" onRequestClose={() => setModalPago(false)}>
+      <Modal visible={modalPago} transparent animationType="fade" onRequestClose={cerrarModalPago}>
         <View style={[estilos.overlay, { backgroundColor: colores.overlay }]}>
-          <View accessibilityViewIsModal style={[estilos.modalPago, { backgroundColor: colores.surface }]}>
-            <Text accessibilityRole="header" style={[estilos.modalTitulo, { color: colores.text }]}>
-              ¿Cómo se pagó?
-            </Text>
-            <Text style={[estilos.modalTotal, { color: colores.primary_strong }]}>
-              Total: ${comanda.total.toFixed(2)}
-            </Text>
+          <ScrollView
+            contentContainerStyle={estilos.scrollModalPago}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View accessibilityViewIsModal style={[estilos.modalPago, { backgroundColor: colores.surface }]}>
+              <Text accessibilityRole="header" style={[estilos.modalTitulo, { color: colores.text }]}>
+                ¿Cómo se pagó?
+              </Text>
+              <Text style={[estilos.modalTotal, { color: colores.primary_strong }]}>
+                Total: ${totalCuenta.toFixed(2)}
+              </Text>
 
-            {METODOS_PAGO.map((metodo) => (
-              <TouchableOpacity
-                key={metodo.id}
-                activeOpacity={0.8}
-                disabled={cobrando}
-                onPress={() => handleCobrar(metodo.id)}
-                accessibilityRole="button"
-                accessibilityLabel={`Cobrar con ${metodo.etiqueta}`}
-                style={[estilos.opcionPago, { borderColor: colores.border }]}
-              >
-                <Ionicons name={metodo.icono} size={24} color={colores.text} />
-                <Text style={[estilos.opcionPagoTexto, { color: colores.text }]}>
-                  {metodo.etiqueta}
-                </Text>
-              </TouchableOpacity>
-            ))}
+              {METODOS_PAGO.map((metodo) => {
+                const elegido = metodoSeleccionado === metodo.id;
+                return (
+                  <TouchableOpacity
+                    key={metodo.id}
+                    activeOpacity={0.8}
+                    disabled={cobrando}
+                    onPress={() => setMetodoSeleccionado(metodo.id)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: elegido, disabled: cobrando }}
+                    accessibilityLabel={`Pagar con ${metodo.etiqueta}`}
+                    style={[
+                      estilos.opcionPago,
+                      {
+                        borderColor: elegido ? colores.primary : colores.border,
+                        backgroundColor: elegido ? colores.primary_soft : 'transparent',
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={metodo.icono}
+                      size={24}
+                      color={elegido ? colores.primary_strong : colores.text}
+                    />
+                    <Text
+                      style={[
+                        estilos.opcionPagoTexto,
+                        { color: elegido ? colores.primary_strong : colores.text },
+                      ]}
+                    >
+                      {metodo.etiqueta}
+                    </Text>
+                    {elegido && (
+                      <Ionicons name="checkmark-circle" size={22} color={colores.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
 
-            <CustomButton
-              titulo="Cancelar"
-              variante="outline"
-              deshabilitado={cobrando}
-              onPress={() => setModalPago(false)}
-            />
-          </View>
+              {metodoSeleccionado === 'efectivo' && (
+                <View style={estilos.bloqueEfectivo}>
+                  <Text style={[estilos.labelMonto, { color: colores.text }]}>
+                    Monto recibido
+                  </Text>
+                  <TextInput
+                    value={montoRecibido}
+                    onChangeText={setMontoRecibido}
+                    placeholder={`Ej. ${Math.ceil(totalCuenta)}`}
+                    placeholderTextColor={colores.text_muted}
+                    keyboardType="decimal-pad"
+                    editable={!cobrando}
+                    accessibilityLabel="Monto recibido en efectivo"
+                    style={[
+                      estilos.inputMonto,
+                      {
+                        color: colores.text,
+                        borderColor: efectivoCubreTotal ? colores.primary : colores.border,
+                        backgroundColor: colores.surface_muted,
+                      },
+                    ]}
+                  />
+
+                  {montoRecibidoNumero === null ? (
+                    <Text style={[estilos.textoCambio, { color: colores.text_muted }]}>
+                      Escribe cuánto entregó el cliente para calcular el cambio.
+                    </Text>
+                  ) : efectivoCubreTotal ? (
+                    <Text style={[estilos.textoCambio, { color: colores.success }]}>
+                      Cambio: ${Math.max(0, cambio ?? 0).toFixed(2)}
+                    </Text>
+                  ) : (
+                    <Text style={[estilos.textoCambio, { color: colores.danger }]}>
+                      Faltan ${Math.abs(cambio ?? 0).toFixed(2)} para cubrir el total.
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              <CustomButton
+                titulo={cobrando ? 'Cobrando...' : 'Cobrar y cerrar cuenta'}
+                variante="primary"
+                cargando={cobrando}
+                deshabilitado={cobrando || !puedeConfirmarPago}
+                onPress={() => {
+                  if (metodoSeleccionado) void handleCobrar(metodoSeleccionado);
+                }}
+                accessibilityHint="Registra el pago y libera la mesa"
+              />
+
+              <CustomButton
+                titulo="Cancelar"
+                variante="outline"
+                deshabilitado={cobrando}
+                onPress={cerrarModalPago}
+              />
+            </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -386,12 +538,38 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
     padding: espaciado.lg,
   },
+  scrollModalPago: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
   modalPago: {
     width: '100%',
     maxWidth: 360,
     borderRadius: radios.xl,
     padding: espaciado.lg,
     gap: espaciado.sm,
+  },
+  bloqueEfectivo: {
+    gap: espaciado.xs,
+    marginBottom: espaciado.xs,
+  },
+  labelMonto: {
+    fontFamily: fuentes.semibold,
+    fontSize: 14,
+  },
+  inputMonto: {
+    height: 48,
+    borderWidth: 1.5,
+    borderRadius: radios.md,
+    paddingHorizontal: espaciado.md,
+    fontFamily: fuentes.bold,
+    fontSize: 18,
+  },
+  textoCambio: {
+    fontFamily: fuentes.semibold,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
   },
   modalTitulo: { fontFamily: fuentes.bold, fontSize: 20, textAlign: 'center' },
   modalTotal: {

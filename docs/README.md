@@ -6,6 +6,7 @@ Aquí anotamos todo lo del proyecto. Los documentos se van clasificando conforme
 |---|---|
 | [project-overview.md](project-overview.md) | Qué es Orby, qué problema resuelve, roles y flujo operativo |
 | [architecture.md](architecture.md) | Capas, módulos, stack y cómo se cubre cada pieza con Supabase |
+| [how-it-works.md](how-it-works.md) | Recorrido técnico capa por capa: presentación, estado, servicios, backend, flujos y deuda técnica |
 | [design-system.md](design-system.md) | Temas Orby y Miami, tokens de color y tipografía, inventario de componentes |
 | [data-model.md](data-model.md) | Modelo de datos conceptual (no es el esquema SQL) |
 | [security.md](security.md) | **Repo público:** qué puede subirse, dónde van las llaves y qué hacer si se filtra una |

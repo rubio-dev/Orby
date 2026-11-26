@@ -45,6 +45,7 @@ export const NOMBRES_ESTADO_DETALLE: Record<number, string> = {
 // tipo_notificacion 3 = 'producto_listo': un aviso por producto marcado como listo.
 export const TIPO_NOTIFICACION_PEDIDO_LISTO = 1;
 export const TIPO_NOTIFICACION_PRODUCTO_LISTO = 3;
+export const TIPO_NOTIFICACION_PRODUCTO_CANCELADO = 5;
 
 // TIPOS DE DATOS DE COCINA
 // Propios de cocina para no tocar src/types/index.ts, que es compartido y todavía
@@ -183,16 +184,28 @@ export type OperacionNotificacion = OperacionBase & {
   id_notificacion: string; // Se genera aquí para que reintentar no cree avisos repetidos
   id_cafeteria: string;
   id_usuario: string;
-  id_tipo: number; // TIPO_NOTIFICACION_PRODUCTO_LISTO o TIPO_NOTIFICACION_PEDIDO_LISTO
+  id_tipo: number; // TIPO_NOTIFICACION_PRODUCTO_LISTO, PEDIDO_LISTO o PRODUCTO_CANCELADO
+  mensaje?: string | null;
   // Los cambios a "listo" que originan el aviso. Si TODOS se descartan, el aviso tampoco se
   // envía; si al menos uno se aplicó, sí hay algo listo que avisar.
   depende_de: string[];
 };
 
+// Cancelar un platillo es una sola operación de la cola: la función de la base
+// actualiza el estado, recalcula el total de la cuenta y crea el aviso al mesero.
+export type OperacionCancelarDetalle = OperacionBase & {
+  tipo: 'cancelar_detalle';
+  id_detalle: string;
+  estado_anterior: number;
+  id_notificacion: string;
+  mensaje: string;
+};
+
 export type OperacionCocina =
   | OperacionEstadoDetalle
   | OperacionTiempoEstimado
-  | OperacionNotificacion;
+  | OperacionNotificacion
+  | OperacionCancelarDetalle;
 
 export type MotivoDescarte =
   | 'cuenta_cerrada'
@@ -295,6 +308,41 @@ export function crearOperacionesCambioEstado(
   return [cambio, aviso];
 }
 
+// Cancelar un platillo por falta de insumos. El aviso va dentro de la misma operación
+// (la función de la base lo inserta), así que no puede quedar una cancelación sin aviso.
+export function crearOperacionesCancelarProducto(
+  comanda: ComandaCocina,
+  detalle: DetalleCocina,
+  motivo?: string
+): OperacionCocina[] {
+  if (
+    detalle.id_estado === ESTADO_DETALLE.entregado ||
+    detalle.id_estado === ESTADO_DETALLE.cancelado
+  ) {
+    return [];
+  }
+
+  const motivoLimpio = (motivo ?? '').trim();
+  const mensaje = motivoLimpio
+    ? `Se canceló “${detalle.nombre_producto}”: ${motivoLimpio}`
+    : `Se canceló “${detalle.nombre_producto}” por falta de insumos.`;
+
+  return [
+    {
+      tipo: 'cancelar_detalle',
+      id_operacion: generarUuid(),
+      id_comanda: comanda.id_comanda,
+      num_mesa: comanda.num_mesa,
+      nombre_producto: detalle.nombre_producto,
+      fecha: new Date().toISOString(),
+      id_detalle: detalle.id_detalle,
+      estado_anterior: detalle.id_estado,
+      id_notificacion: generarUuid(),
+      mensaje,
+    },
+  ];
+}
+
 // Botón "Completar": marca como listos los productos que falten (pendientes o en preparación)
 // y agrega UN solo aviso 'pedido_listo' para toda la comanda, en lugar de uno por producto.
 // No cierra la cuenta: eso lo hace quien cobra. Devuelve [] si no falta nada.
@@ -369,6 +417,8 @@ export function aplicarColaSobreComandas(
       for (const op of ops) {
         if (op.tipo === 'estado_detalle' && op.id_detalle === detalle.id_detalle) {
           resultado = { ...resultado, id_estado: op.estado_nuevo };
+        } else if (op.tipo === 'cancelar_detalle' && op.id_detalle === detalle.id_detalle) {
+          resultado = { ...resultado, id_estado: ESTADO_DETALLE.cancelado };
         } else if (op.tipo === 'tiempo_estimado' && op.id_detalle === detalle.id_detalle) {
           resultado = { ...resultado, tiempo_estimado: op.minutos };
         }
@@ -514,6 +564,56 @@ async function aplicarEstadoDetalle(
   };
 }
 
+async function aplicarCancelarDetalle(
+  op: OperacionCancelarDetalle,
+  deps: DependenciasCola
+): Promise<Resultado> {
+  const accion = 'cancelar';
+  const { resultado, fallo_red } = await deps.conRed(
+    async () =>
+      await deps.supabase.rpc('cancelar_detalle_comanda', {
+        p_id_detalle: op.id_detalle,
+        p_id_notificacion: op.id_notificacion,
+        p_mensaje: op.mensaje,
+      })
+  );
+
+  if (fallo_red || !resultado) return { estado: 'detener', razon: 'red' };
+
+  if (resultado.error) {
+    if (esErrorDeSesion(resultado.error)) {
+      return { estado: 'detener', razon: 'sesion' };
+    }
+
+    const mensaje = String(resultado.error.message ?? '');
+    if (mensaje.includes('DETALLE_INVALIDO')) {
+      return {
+        estado: 'descartada',
+        motivo: 'no_encontrado',
+        mensaje: `No se pudo ${accion} ${etiqueta(op)}: el producto ya no está en la cuenta.`,
+      };
+    }
+    if (mensaje.includes('CUENTA_CERRADA')) {
+      return {
+        estado: 'descartada',
+        motivo: 'cuenta_cerrada',
+        mensaje: `No se pudo ${accion} ${etiqueta(op)}: la cuenta ya se cerró.`,
+      };
+    }
+    if (mensaje.includes('DETALLE_ENTREGADO')) {
+      return {
+        estado: 'descartada',
+        motivo: 'conflicto',
+        mensaje: `No se pudo ${accion} ${etiqueta(op)}: el producto ya se entregó al cliente.`,
+      };
+    }
+
+    return resultadoPorError(resultado.error, op, accion);
+  }
+
+  return { estado: 'aplicada' };
+}
+
 async function aplicarTiempoEstimado(
   op: OperacionTiempoEstimado,
   deps: DependenciasCola
@@ -563,6 +663,7 @@ async function aplicarNotificacion(
         id_usuario: op.id_usuario,
         id_comanda: op.id_comanda,
         id_tipo: op.id_tipo,
+        mensaje: op.mensaje ?? null,
       })
   );
   if (fallo_red || !resultado) return { estado: 'detener', razon: 'red' };
@@ -600,6 +701,7 @@ export async function procesarCola(
     let resultado: Resultado;
     try {
       if (op.tipo === 'estado_detalle') resultado = await aplicarEstadoDetalle(op, deps);
+      else if (op.tipo === 'cancelar_detalle') resultado = await aplicarCancelarDetalle(op, deps);
       else if (op.tipo === 'tiempo_estimado') resultado = await aplicarTiempoEstimado(op, deps);
       else resultado = await aplicarNotificacion(op, deps);
     } catch (err) {

@@ -16,9 +16,9 @@ import { CustomButton } from '@/components/CustomButton'; // Botón del diseño 
 import { CustomInput } from '@/components/CustomInput'; // Campo con etiqueta y ojito para contraseña
 import { OrbyLogo } from '@/components/OrbyLogo'; // Logo de la taza en órbita
 import { useAuth } from '@/context/auth-context'; // Sesión y roles
-import { validar_correo } from '@/lib/auth'; // Validación de correo
+import { LARGO_MAXIMO_CONTRASENA, validar_correo } from '@/lib/auth'; // Validación de correo y contraseña
+import { confirmarAccion, mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
 import { espaciado, fuentes, tipografia, useTema } from '@/theme'; // Tema activo y tokens
-import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
 
 // PANTALLA DE INICIO DE SESIÓN ("/login")
 // Un solo login para los 3 roles. Al entrar, se lee el rol en public.usuario
@@ -27,7 +27,7 @@ import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (
 export default function LoginScreen() {
   const router = useRouter();
   const { colores } = useTema();
-  const { iniciarSesion } = useAuth();
+  const { iniciarSesion, solicitarRestablecimiento } = useAuth();
 
   // Datos del formulario
   const [correo, setCorreo] = useState('');
@@ -35,6 +35,7 @@ export default function LoginScreen() {
 
   // Estado de la pantalla
   const [cargando, setCargando] = useState(false);
+  const [enviandoRecuperacion, setEnviandoRecuperacion] = useState(false);
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
 
   // Valida los campos, inicia sesión y redirige según el rol
@@ -74,13 +75,46 @@ export default function LoginScreen() {
     }
   };
 
-  // La contraseña la restablece el administrador (no hay recuperación por correo todavía)
+  // Envía un correo real de recuperación. El enlace regresa a /restablecer, donde se
+  // pide la contraseña nueva. Usa el correo que ya está escrito en el formulario.
   const handleOlvidoContrasena = () => {
-    mostrarAviso(
-      '¿Olvidaste tu contraseña?',
-      'Por favor contacta al administrador de tu cafetería para restablecer tu contraseña.',
-      [{ text: 'Entendido' }]
-    );
+    if (enviandoRecuperacion) return;
+
+    const correoLimpio = correo.trim().toLowerCase();
+    if (!correoLimpio) {
+      setErrorMensaje('Escribe tu correo arriba y vuelve a tocar "¿Olvidaste tu contraseña?".');
+      return;
+    }
+
+    if (!validar_correo(correoLimpio)) {
+      setErrorMensaje('Escribe un correo válido, por ejemplo nombre@ejemplo.com.');
+      return;
+    }
+
+    confirmarAccion({
+      titulo: 'Restablecer contraseña',
+      mensaje: `Enviaremos un enlace de recuperación a ${correoLimpio}. Revisa también la carpeta de spam.`,
+      textoConfirmar: 'Enviar enlace',
+      alConfirmar: async () => {
+        setErrorMensaje(null);
+        setEnviandoRecuperacion(true);
+        const resultado = await solicitarRestablecimiento(correoLimpio);
+        setEnviandoRecuperacion(false);
+
+        if (resultado.exito) {
+          mostrarAviso(
+            'Revisa tu correo',
+            'Si existe una cuenta con ese correo, recibirás un enlace para crear una contraseña nueva. El enlace caduca después de un rato.',
+            [{ text: 'Entendido' }]
+          );
+        } else {
+          mostrarAviso(
+            'No se pudo enviar el correo',
+            resultado.error ?? 'Inténtalo de nuevo en unos minutos.'
+          );
+        }
+      },
+    });
   };
 
   // Explica cómo obtienen su cuenta los meseros y cocina
@@ -133,6 +167,7 @@ export default function LoginScreen() {
               autoCapitalize="none" // Evita la mayúscula automática al inicio del correo
               autoCorrect={false}
               autoComplete="email"
+              maxLength={254}
               value={correo}
               onChangeText={(texto) => {
                 setCorreo(texto);
@@ -147,6 +182,7 @@ export default function LoginScreen() {
               esContrasena // Agrega el ojito para mostrar u ocultar
               autoCapitalize="none"
               autoComplete="current-password"
+              maxLength={LARGO_MAXIMO_CONTRASENA}
               value={contrasena}
               onChangeText={(texto) => {
                 setContrasena(texto);
@@ -164,8 +200,17 @@ export default function LoginScreen() {
               estilo={estilos.botonAccion}
             />
 
-            <TouchableOpacity activeOpacity={0.7} onPress={handleOlvidoContrasena} style={estilos.enlaceOlvido}>
-              <Text style={[estilos.textoOlvido, { color: colores.text }]}>¿Olvidaste tu contraseña?</Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              disabled={enviandoRecuperacion}
+              onPress={handleOlvidoContrasena}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: enviandoRecuperacion, busy: enviandoRecuperacion }}
+              style={estilos.enlaceOlvido}
+            >
+              <Text style={[estilos.textoOlvido, { color: colores.text, opacity: enviandoRecuperacion ? 0.6 : 1 }]}>
+                {enviandoRecuperacion ? 'Enviando enlace…' : '¿Olvidaste tu contraseña?'}
+              </Text>
             </TouchableOpacity>
 
             {/* Separador */}

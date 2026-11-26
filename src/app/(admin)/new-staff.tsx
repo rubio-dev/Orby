@@ -17,7 +17,17 @@ import { CustomButton } from '@/components/CustomButton'; // Botón del diseño 
 import { CustomInput } from '@/components/CustomInput'; // Campo con etiqueta y ojito para contraseña
 import { ScreenHeader } from '@/components/ScreenHeader'; // Encabezado con flecha de regreso
 import { useAuth } from '@/context/auth-context'; // Registro de personal
-import { LARGO_MINIMO_CONTRASENA, validar_contrasena, validar_correo } from '@/lib/auth'; // Validaciones
+import {
+  LARGO_MAXIMO_CONTRASENA,
+  LARGO_MINIMO_CONTRASENA,
+  validar_contrasena,
+  validar_correo,
+} from '@/lib/auth'; // Validaciones
+import {
+  MAX_LARGO_NOMBRE,
+  limpiar_espacios,
+  validar_nombre_persona,
+} from '@/lib/validation';
 import { type ColoresTema, espaciado, fuentes, radios, tipografia, useTema } from '@/theme'; // Tema activo y tokens
 
 // TIPOS
@@ -77,8 +87,9 @@ export default function NuevoEmpleadoScreen() {
   const validar = (): ErroresFormulario => {
     const encontrados: ErroresFormulario = {};
 
-    if (nombre.trim().length < 3) {
-      encontrados.nombre = 'Escribe el nombre completo del empleado.';
+    const errorNombre = validar_nombre_persona(nombre);
+    if (errorNombre) {
+      encontrados.nombre = errorNombre;
     }
 
     if (!validar_correo(correo)) {
@@ -109,7 +120,12 @@ export default function NuevoEmpleadoScreen() {
     setCargando(true);
     try {
       const resultado = await registrarPersonal(
-        { nombre, correo, contrasena, rol },
+        {
+          nombre: limpiar_espacios(nombre),
+          correo: correo.trim().toLowerCase(),
+          contrasena,
+          rol,
+        },
         (n, max) => setMensajeReintento(`Reintentando conexión con el servidor (intento ${n} de ${max})...`)
       );
 
@@ -191,6 +207,7 @@ export default function NuevoEmpleadoScreen() {
             obligatorio
             placeholder="Ej. Juan Pérez"
             autoCapitalize="words"
+            maxLength={MAX_LARGO_NOMBRE}
             value={nombre}
             onChangeText={setNombre}
             error={errores.nombre}
@@ -205,6 +222,7 @@ export default function NuevoEmpleadoScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            maxLength={254}
             value={correo}
             onChangeText={setCorreo}
             error={errores.correo}
@@ -215,10 +233,11 @@ export default function NuevoEmpleadoScreen() {
           <CustomInput
             label="Contraseña"
             obligatorio
-            placeholder={`Mínimo ${LARGO_MINIMO_CONTRASENA} caracteres`}
+            placeholder={`Mínimo ${LARGO_MINIMO_CONTRASENA}, con letra y número`}
             esContrasena
             autoCapitalize="none"
             autoComplete="off" // Que el navegador no la guarde como contraseña del administrador
+            maxLength={LARGO_MAXIMO_CONTRASENA}
             value={contrasena}
             onChangeText={setContrasena}
             error={errores.contrasena}
@@ -233,6 +252,7 @@ export default function NuevoEmpleadoScreen() {
             esContrasena
             autoCapitalize="none"
             autoComplete="off"
+            maxLength={LARGO_MAXIMO_CONTRASENA}
             value={confirmacion}
             onChangeText={setConfirmacion}
             variante="relleno"

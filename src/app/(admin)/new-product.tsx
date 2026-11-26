@@ -22,6 +22,19 @@ import { CustomButton } from '@/components/CustomButton';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useCatalog } from '@/context/catalog-context';
 import { mostrarAviso } from '@/lib/confirm';
+import {
+  MAX_LARGO_DESCRIPCION_PRODUCTO,
+  MAX_LARGO_PRODUCTO,
+  bytes_de_base64,
+  limpiar_espacios,
+  normalizar_para_comparar,
+  parsear_precio,
+  validar_formato_imagen,
+  validar_nombre_producto,
+  validar_precio_producto,
+  validar_tamano_imagen,
+  validar_url_imagen,
+} from '@/lib/validation';
 import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme';
 
 const MINIATURAS_SUGERIDAS = [
@@ -99,6 +112,31 @@ export default function AdminNewProductScreen() {
     setModalImagenAbierto(true);
   };
 
+  // Revisa formato y peso antes de aceptar una foto de la galería o cámara.
+  const validarImagenElegida = (asset: ImagePicker.ImagePickerAsset) => {
+    const mimeInferido = asset.uri.toLowerCase().endsWith('.png')
+      ? 'image/png'
+      : asset.uri.toLowerCase().endsWith('.webp')
+        ? 'image/webp'
+        : 'image/jpeg';
+    const mime = asset.mimeType ?? mimeInferido;
+
+    const errorFormato = validar_formato_imagen(mime);
+    if (errorFormato) {
+      mostrarAviso('Formato no permitido', errorFormato);
+      return false;
+    }
+
+    const bytes = asset.fileSize ?? (asset.base64 ? bytes_de_base64(asset.base64) : null);
+    const errorTamano = validar_tamano_imagen(bytes);
+    if (errorTamano) {
+      mostrarAviso('Imagen demasiado grande', `${errorTamano} Elige una foto más ligera.`);
+      return false;
+    }
+
+    return true;
+  };
+
   const handleElegirDeGaleria = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
@@ -119,6 +157,8 @@ export default function AdminNewProductScreen() {
 
     if (!resultado.canceled && resultado.assets && resultado.assets.length > 0) {
       const asset = resultado.assets[0];
+      if (!validarImagenElegida(asset)) return;
+
       const mimeType = asset.mimeType ?? 'image/jpeg';
       const uri = asset.base64 ? `data:${mimeType};base64,${asset.base64}` : asset.uri;
       setImagenUrl(uri);
@@ -146,6 +186,8 @@ export default function AdminNewProductScreen() {
 
     if (!resultado.canceled && resultado.assets && resultado.assets.length > 0) {
       const asset = resultado.assets[0];
+      if (!validarImagenElegida(asset)) return;
+
       const mimeType = asset.mimeType ?? 'image/jpeg';
       const uri = asset.base64 ? `data:${mimeType};base64,${asset.base64}` : asset.uri;
       setImagenUrl(uri);
@@ -155,14 +197,36 @@ export default function AdminNewProductScreen() {
   };
 
   const handleGuardar = async () => {
-    if (!nombre.trim()) {
-      mostrarAviso('Campo requerido', 'Por favor ingresa el nombre del producto.');
+    const nombreLimpio = limpiar_espacios(nombre);
+    const errorNombre = validar_nombre_producto(nombreLimpio);
+    if (errorNombre) {
+      mostrarAviso('Nombre inválido', errorNombre);
       return;
     }
 
-    const precioNumero = parseFloat(precio.replace(/[^0-9.]/g, ''));
-    if (isNaN(precioNumero) || precioNumero < 0) {
+    const nombreNormalizado = normalizar_para_comparar(nombreLimpio);
+    const duplicado = productos.some(
+      (p) =>
+        p.id_producto !== productoExistente?.id_producto &&
+        normalizar_para_comparar(p.nombre_producto) === nombreNormalizado
+    );
+    if (duplicado) {
+      mostrarAviso(
+        'Producto repetido',
+        `Ya existe un producto llamado "${nombreLimpio}" en esta cafetería. Usa otro nombre.`
+      );
+      return;
+    }
+
+    const precioNumero = parsear_precio(precio);
+    if (precioNumero === null) {
       mostrarAviso('Precio inválido', 'Por favor ingresa un precio numérico válido.');
+      return;
+    }
+
+    const errorPrecio = validar_precio_producto(precioNumero);
+    if (errorPrecio) {
+      mostrarAviso('Precio inválido', errorPrecio);
       return;
     }
 
@@ -172,17 +236,24 @@ export default function AdminNewProductScreen() {
       return;
     }
 
+    const urlImagen = imagenUrl.trim();
+    const errorUrl = validar_url_imagen(urlImagen);
+    if (errorUrl) {
+      mostrarAviso('Imagen inválida', errorUrl);
+      return;
+    }
+
     setCargando(true);
     setMensajeReintento(null);
 
     const datosProducto = {
       id_categoria: idCategoriaFinal,
       nombre_categoria: categoriaObj?.nombre_categoria,
-      nombre_producto: nombre.trim(),
-      descripcion: descripcion.trim(),
-      precio: precioNumero,
+      nombre_producto: nombreLimpio,
+      descripcion: limpiar_espacios(descripcion).slice(0, MAX_LARGO_DESCRIPCION_PRODUCTO),
+      precio: Math.round(precioNumero * 100) / 100,
       estado,
-      imagen_url: imagenUrl.trim() || null,
+      imagen_url: urlImagen || null,
     };
 
     const callbackReintento = (intento: number, max: number) => {
@@ -276,6 +347,7 @@ export default function AdminNewProductScreen() {
               onChangeText={setNombre}
               placeholder="Ej. Latte"
               placeholderTextColor={colores.text_muted}
+              maxLength={MAX_LARGO_PRODUCTO}
               style={[
                 estilos.inputBorde,
                 { backgroundColor: colores.surface, borderColor: colores.text, color: colores.text },
@@ -335,13 +407,13 @@ export default function AdminNewProductScreen() {
             <TextInput
               value={descripcion}
               onChangeText={(text) => {
-                if (text.length <= 200) {
+                if (text.length <= MAX_LARGO_DESCRIPCION_PRODUCTO) {
                   setDescripcion(text);
                 }
               }}
               multiline
               numberOfLines={4}
-              maxLength={200}
+              maxLength={MAX_LARGO_DESCRIPCION_PRODUCTO}
               placeholder="Ej. bebida de café hecha con una dosis de espresso y una gran porción de leche vaporizada, coronada con una capa fina de microespuma."
               placeholderTextColor={colores.text_muted}
               style={[
@@ -351,7 +423,7 @@ export default function AdminNewProductScreen() {
               ]}
             />
             <Text style={[estilos.contadorCaracteres, { color: colores.text_muted }]}>
-              {descripcion.length}/200
+              {descripcion.length}/{MAX_LARGO_DESCRIPCION_PRODUCTO}
             </Text>
           </View>
 
@@ -584,7 +656,13 @@ export default function AdminNewProductScreen() {
 
               <TouchableOpacity
                 onPress={() => {
-                  setImagenUrl(inputUrlImagen.trim());
+                  const urlLimpia = inputUrlImagen.trim();
+                  const errorUrl = validar_url_imagen(urlLimpia);
+                  if (errorUrl) {
+                    mostrarAviso('Imagen inválida', errorUrl);
+                    return;
+                  }
+                  setImagenUrl(urlLimpia);
                   setModalImagenAbierto(false);
                 }}
                 style={[estilos.botonModal, { backgroundColor: colores.primary }]}

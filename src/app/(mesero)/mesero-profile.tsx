@@ -17,7 +17,7 @@ import { CustomInput } from '@/components/CustomInput';
 import { MeseroBottomNav } from '@/components/MeseroBottomNav';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useAuth } from '@/context/auth-context';
-import { validar_contrasena } from '@/lib/auth';
+import { LARGO_MAXIMO_CONTRASENA, validar_contrasena } from '@/lib/auth';
 import { confirmarAccion, mostrarAviso } from '@/lib/confirm';
 import { espaciado, fuentes, tipografia, useTema } from '@/theme';
 
@@ -121,7 +121,8 @@ export default function MeseroProfileScreen() {
 
             <CustomInput
               label="Nueva contraseña"
-              placeholder="Mínimo 8 caracteres"
+              placeholder="Mínimo 8, con letra y número"
+              maxLength={LARGO_MAXIMO_CONTRASENA}
               value={nuevaContrasena}
               esContrasena={true}
               editable={!guardando}
@@ -135,6 +136,7 @@ export default function MeseroProfileScreen() {
             <CustomInput
               label="Confirmar contraseña"
               placeholder="Repite la nueva contraseña"
+              maxLength={LARGO_MAXIMO_CONTRASENA}
               value={confirmarContrasena}
               esContrasena={true}
               editable={!guardando}

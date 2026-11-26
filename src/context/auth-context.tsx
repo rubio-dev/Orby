@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Linking from 'expo-linking';
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 import {
@@ -7,9 +8,16 @@ import {
   MENSAJE_SIN_CONEXION,
   registrar_empleado_supabase,
   traducir_error,
+  validar_correo,
+  validar_fortaleza_contrasena,
 } from '@/lib/auth'; // Alta real de empleados y mensajes de error en español
 import { supabase_configurado } from '@/lib/env';
 import { obtener_supabase } from '@/lib/supabase';
+import {
+  limpiar_espacios,
+  validar_nombre_cafeteria,
+  validar_nombre_persona,
+} from '@/lib/validation';
 import { NOMBRES_ROLES, type RolUsuario, type Usuario } from '@/types';
 
 // CLAVE PARA ALMACENAR LA SESIÓN LOCALMENTE
@@ -43,6 +51,7 @@ type AuthContextType = {
     nuevaContrasena: string,
     alReintentar?: (intentoActual: number, maxIntentos: number) => void
   ) => Promise<{ exito: boolean; error?: string }>;
+  solicitarRestablecimiento: (correo: string) => Promise<{ exito: boolean; error?: string }>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -210,10 +219,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { exito: false, error: 'Solo se puede registrar a meseros o cocina.' };
     }
 
+    const nombreLimpio = limpiar_espacios(datos.nombre);
+    const correoLimpio = datos.correo.trim().toLowerCase();
+
+    const errorNombre = validar_nombre_persona(nombreLimpio);
+    if (errorNombre) {
+      return { exito: false, error: errorNombre };
+    }
+
+    if (!validar_correo(correoLimpio)) {
+      return { exito: false, error: 'Escribe un correo válido para el empleado.' };
+    }
+
+    const errorContrasena = validar_fortaleza_contrasena(datos.contrasena);
+    if (errorContrasena) {
+      return { exito: false, error: errorContrasena };
+    }
+
     const resultado = await registrar_empleado_supabase(
       {
-        nombre: datos.nombre.trim(),
-        correo: datos.correo.trim().toLowerCase(),
+        nombre: nombreLimpio,
+        correo: correoLimpio,
         contrasena: datos.contrasena,
         rol: datos.rol,
         id_cafeteria: usuario.id_cafeteria, // La cafetería del administrador que lo registra
@@ -290,16 +316,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     contrasena: string;
   }): Promise<{ exito: boolean; error?: string }> => {
     const correoNormalizado = datos.correo.trim().toLowerCase();
-    const nombre = datos.nombre.trim();
-    const nombreCafeteria = datos.nombreCafeteria.trim();
+    const nombre = limpiar_espacios(datos.nombre);
+    const nombreCafeteria = limpiar_espacios(datos.nombreCafeteria);
     const contrasena = datos.contrasena;
 
     if (!nombre || !nombreCafeteria || !correoNormalizado || !contrasena) {
       return { exito: false, error: 'Por favor completa todos los campos requeridos.' };
     }
 
-    if (contrasena.length < 6) {
-      return { exito: false, error: 'La contraseña debe contener al menos 6 caracteres.' };
+    const errorNombre = validar_nombre_persona(nombre);
+    if (errorNombre) {
+      return { exito: false, error: errorNombre };
+    }
+
+    const errorCafeteria = validar_nombre_cafeteria(nombreCafeteria);
+    if (errorCafeteria) {
+      return { exito: false, error: errorCafeteria };
+    }
+
+    if (!validar_correo(correoNormalizado)) {
+      return { exito: false, error: 'Escribe un correo válido.' };
+    }
+
+    const errorContrasena = validar_fortaleza_contrasena(contrasena);
+    if (errorContrasena) {
+      return { exito: false, error: errorContrasena };
     }
 
     if (!supabase_configurado) {
@@ -384,12 +425,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
     }
 
+    const errorFortaleza = validar_fortaleza_contrasena(nuevaContrasena);
+    if (errorFortaleza) {
+      return { exito: false, error: errorFortaleza };
+    }
+
     const resultado = await cambiar_contrasena_supabase(
       nuevaContrasena,
       alReintentar,
       usuario.correo
     );
     return { exito: resultado.exito, error: resultado.error ?? undefined };
+  };
+
+  // Envía el correo de restablecimiento. El enlace regresa a la pantalla /restablecer,
+  // donde se pide la contraseña nueva. Supabase responde igual exista o no la cuenta
+  // (para no revelar correos registrados), así que el mensaje también es genérico.
+  const solicitarRestablecimiento = async (
+    correo: string
+  ): Promise<{ exito: boolean; error?: string }> => {
+    if (!supabase_configurado) {
+      return {
+        exito: false,
+        error: 'Supabase no está configurado. No se puede enviar el correo de recuperación.',
+      };
+    }
+
+    const correoNormalizado = correo.trim().toLowerCase();
+    if (!validar_correo(correoNormalizado)) {
+      return { exito: false, error: 'Escribe primero un correo válido.' };
+    }
+
+    try {
+      const supabase = obtener_supabase();
+      const redirectTo = Linking.createURL('/restablecer');
+      const { error } = await supabase.auth.resetPasswordForEmail(correoNormalizado, {
+        redirectTo,
+      });
+
+      if (error) {
+        return { exito: false, error: traducir_error(error) };
+      }
+
+      return { exito: true };
+    } catch (e) {
+      console.warn('Error al solicitar el restablecimiento de contraseña:', e);
+      return { exito: false, error: MENSAJE_SIN_CONEXION };
+    }
   };
 
   // Cerrar sesión
@@ -426,6 +508,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registrarPersonal,
         eliminarPersonal,
         cambiarContrasena,
+        solicitarRestablecimiento,
       }}
     >
       {children}

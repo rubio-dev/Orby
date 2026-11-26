@@ -106,7 +106,7 @@ export default function AdminMenuScreen() {
   const handleEliminarProducto = (item: Producto) => {
     confirmarAccion({
       titulo: 'Eliminar producto',
-      mensaje: `¿Estás seguro de que deseas eliminar "${item.nombre_producto}" del catálogo?`,
+      mensaje: `¿Estás seguro de que deseas eliminar "${item.nombre_producto}" del catálogo?\n\nSi ya aparece en comandas del historial, se desactivará en lugar de borrarse para no perder esas ventas.`,
       textoConfirmar: 'Eliminar',
       destructivo: true,
       alConfirmar: async () => {
@@ -114,7 +114,9 @@ export default function AdminMenuScreen() {
           const resultado = await eliminarProducto(item.id_producto, (n, max) =>
             setMensajeReintento(`Eliminando producto (intento ${n} de ${max})...`)
           );
-          if (resultado.enCola) {
+          if (resultado.exito && resultado.aviso) {
+            mostrarAviso('Producto desactivado', resultado.aviso);
+          } else if (resultado.enCola) {
             mostrarAviso(
               'Guardado en cola',
               'El servidor no respondió. La eliminación quedó en cola y se aplicará al reconectar.'
@@ -486,6 +488,7 @@ export default function AdminMenuScreen() {
               placeholder="Ej. Cafés de especialidad"
               placeholderTextColor={colores.text_muted}
               autoFocus
+              maxLength={60}
               style={[
                 estilos.inputBorde,
                 {

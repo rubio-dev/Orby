@@ -20,6 +20,7 @@ import { CustomButton } from '@/components/CustomButton';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useOrders } from '@/context/orders-context';
 import { confirmarAccion, mostrarAviso } from '@/lib/confirm';
+import { MAX_NUMERO_MESA, validar_numero_mesa } from '@/lib/validation';
 import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme';
 import type { EstadoMesa, Mesa } from '@/types';
 
@@ -28,6 +29,7 @@ export default function AdminTablesScreen() {
   const { colores } = useTema();
   const {
     mesas,
+    comandas,
     cargandoMesas,
     pendientesMesas,
     sincronizandoColaMesas,
@@ -96,11 +98,17 @@ export default function AdminTablesScreen() {
   };
 
   const handleCrearMesa = async () => {
-    const num = parseInt(nuevoNumero.trim(), 10);
-    if (isNaN(num) || num <= 0) {
+    const num = Number(nuevoNumero.trim());
+    const errorNumero = validar_numero_mesa(num);
+    if (errorNumero) {
+      mostrarAviso('Número inválido', errorNumero);
+      return;
+    }
+
+    if (mesas.some((m) => m.num_mesa === num)) {
       mostrarAviso(
-        'Número inválido',
-        'Por favor ingresa un número de mesa entero y mayor a 0.'
+        'Mesa repetida',
+        `La mesa #${num} ya existe. Usa un número distinto o abre la mesa existente.`
       );
       return;
     }
@@ -108,7 +116,9 @@ export default function AdminTablesScreen() {
     setCreando(true);
     try {
       const res = await crearMesa(num);
-      if (res.enCola) {
+      if (res.exito && res.aviso) {
+        mostrarAviso('Mesa actualizada', res.aviso);
+      } else if (res.enCola) {
         setModalVisible(false);
         setNuevoNumero('');
         mostrarAviso(
@@ -198,6 +208,18 @@ export default function AdminTablesScreen() {
   };
 
   const handleEliminarMesa = (mesa: Mesa) => {
+    const tieneComandaAbierta =
+      mesa.estado === 'ocupada' ||
+      comandas.some((comanda) => comanda.id_mesa === mesa.id_mesa && comanda.id_estado === 1);
+
+    if (tieneComandaAbierta) {
+      mostrarAviso(
+        'Mesa con comanda abierta',
+        `La mesa #${mesa.num_mesa} todavía tiene una cuenta abierta. Cóbrala o ciérrala antes de eliminarla; si la borras, se perdería esa comanda.`
+      );
+      return;
+    }
+
     confirmarAccion({
       titulo: 'Eliminar mesa',
       mensaje: `¿Estás seguro de que deseas eliminar permanentemente la mesa #${mesa.num_mesa}? Esta acción no se puede deshacer.`,
@@ -208,7 +230,9 @@ export default function AdminTablesScreen() {
         setAccionEnProgreso(mesa.id_mesa);
         try {
           const res = await eliminarMesa(mesa.id_mesa);
-          if (res.enCola) {
+          if (res.exito && res.aviso) {
+            mostrarAviso('Mesa no eliminada', res.aviso);
+          } else if (res.enCola) {
             mostrarAviso(
               'Cambio guardado en cola',
               'Sin conexión al servidor. El cambio se aplicó localmente y se sincronizará automáticamente al reconectar.'
@@ -639,7 +663,7 @@ export default function AdminTablesScreen() {
                 { color: colores.text_secondary },
               ]}
             >
-              Ingresa el número identificador para registrar una nueva mesa en la cafetería:
+              Ingresa el número identificador (del 1 al {MAX_NUMERO_MESA}) para registrar una nueva mesa en la cafetería:
             </Text>
 
             <View style={estilos.contenedorInput}>
@@ -652,6 +676,7 @@ export default function AdminTablesScreen() {
                 placeholder="Ej. 12"
                 placeholderTextColor={colores.placeholder}
                 keyboardType="number-pad"
+                maxLength={String(MAX_NUMERO_MESA).length}
                 editable={!creando}
                 style={[
                   estilos.inputNumerico,

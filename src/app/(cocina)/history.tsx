@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -19,11 +20,52 @@ import { AvisoSinConexion } from '@/kitchen/AvisoSinConexion';
 import { ESTADO_DETALLE, etiquetaComanda, type ComandaCocina } from '@/lib/kitchen-network';
 import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme';
 
+const TAMANO_PAGINA = 20;
+
 export default function CocinaHistoryScreen() {
   const router = useRouter();
   const { colores } = useTema();
-  // Cuentas cerradas de hoy, de la más reciente a la más vieja (el orden lo pide el contexto)
+  // Cuentas cerradas del turno, de la más reciente a la más vieja (el orden lo pide el contexto)
   const { comandasCerradasHoy: completadas, cargando, recargando, recargar } = useKitchen();
+
+  const [busqueda, setBusqueda] = useState('');
+  const [cantidadVisible, setCantidadVisible] = useState(TAMANO_PAGINA);
+
+  // Búsqueda local por mesa, cliente, folio o productos. El historial del turno ya está
+  // cargado en memoria, así que filtrar aquí responde al instante sin otra consulta.
+  const filtradas = useMemo(() => {
+    const termino = busqueda.trim().toLowerCase();
+    if (!termino) return completadas;
+
+    return completadas.filter((comanda) => {
+      const folio = comanda.id_comanda.toLowerCase();
+      const productos = comanda.detalles
+        .map((detalle) => detalle.nombre_producto)
+        .join(' ')
+        .toLowerCase();
+      const texto = [
+        etiquetaComanda(comanda),
+        String(comanda.num_mesa),
+        comanda.nombre_cliente ?? '',
+        folio,
+        folio.slice(0, 8),
+        productos,
+        String(comanda.total),
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return texto.includes(termino);
+    });
+  }, [busqueda, completadas]);
+
+  const mostradas = filtradas.slice(0, cantidadVisible);
+  const hayMas = cantidadVisible < filtradas.length;
+
+  const cambiarBusqueda = (texto: string) => {
+    setBusqueda(texto);
+    setCantidadVisible(TAMANO_PAGINA);
+  };
 
   const renderComanda = ({ item }: { item: ComandaCocina }) => (
     <View style={[estilos.tarjeta, { backgroundColor: colores.surface, borderColor: colores.text }]}>
@@ -73,12 +115,43 @@ export default function CocinaHistoryScreen() {
       <AvisoSinConexion />
 
       <View style={estilos.contenido}>
+        <View
+          style={[
+            estilos.buscador,
+            { backgroundColor: colores.surface, borderColor: colores.text },
+          ]}
+        >
+          <Ionicons name="search" size={20} color={colores.text} />
+          <TextInput
+            value={busqueda}
+            onChangeText={cambiarBusqueda}
+            placeholder="Buscar por mesa, folio o producto"
+            placeholderTextColor={colores.text_muted}
+            style={[estilos.inputBuscar, { color: colores.text }]}
+            accessibilityLabel="Buscar en el historial de comandas"
+          />
+          {busqueda.length > 0 && (
+            <TouchableOpacity
+              onPress={() => cambiarBusqueda('')}
+              accessibilityRole="button"
+              accessibilityLabel="Limpiar búsqueda"
+              hitSlop={8}
+            >
+              <Ionicons name="close-circle" size={20} color={colores.text_muted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
         <FlatList
-          data={completadas}
+          data={mostradas}
           keyExtractor={(item) => item.id_comanda}
           renderItem={renderComanda}
           contentContainerStyle={estilos.lista}
           showsVerticalScrollIndicator={false}
+          onEndReached={() => {
+            if (hayMas) setCantidadVisible((actual) => actual + TAMANO_PAGINA);
+          }}
+          onEndReachedThreshold={0.4}
           refreshControl={
             <RefreshControl
               refreshing={recargando}
@@ -87,6 +160,14 @@ export default function CocinaHistoryScreen() {
               colors={[colores.primary]}
             />
           }
+          ListFooterComponent={
+            filtradas.length > 0 ? (
+              <Text style={[tipografia.detalle, estilos.pieLista, { color: colores.text_muted }]}>
+                Mostrando {mostradas.length} de {filtradas.length} comandas
+                {hayMas ? '. Desliza para ver más.' : '.'}
+              </Text>
+            ) : undefined
+          }
           ListEmptyComponent={
             cargando ? (
               <View style={estilos.vacio}>
@@ -94,9 +175,15 @@ export default function CocinaHistoryScreen() {
               </View>
             ) : (
               <View style={estilos.vacio}>
-                <Ionicons name="time-outline" size={48} color={colores.text_muted} />
+                <Ionicons
+                  name={busqueda ? 'search-outline' : 'time-outline'}
+                  size={48}
+                  color={colores.text_muted}
+                />
                 <Text style={[tipografia.cuerpo, { color: colores.text_muted, marginTop: espaciado.md }]}>
-                  Aún no hay comandas cerradas hoy
+                  {busqueda
+                    ? 'No hay comandas que coincidan con la búsqueda'
+                    : 'Aún no hay comandas cerradas en este turno'}
                 </Text>
               </View>
             )
@@ -117,10 +204,29 @@ const estilos = StyleSheet.create({
     flex: 1,
     paddingHorizontal: espaciado.pantalla,
   },
+  buscador: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: espaciado.sm,
+    height: 48,
+    borderWidth: 1.5,
+    borderRadius: 24,
+    paddingHorizontal: espaciado.md,
+    marginTop: espaciado.sm,
+  },
+  inputBuscar: {
+    flex: 1,
+    height: '100%',
+    fontSize: 15,
+  },
   lista: {
     paddingTop: espaciado.xs,
     paddingBottom: espaciado.xl,
     gap: espaciado.md,
+  },
+  pieLista: {
+    textAlign: 'center',
+    paddingVertical: espaciado.sm,
   },
   tarjeta: {
     padding: espaciado.md,

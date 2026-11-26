@@ -168,6 +168,16 @@ export default function AdminStaffScreen() {
       return;
     }
 
+    // Defensa extra aparte de ocultar el botón: la sesión del administrador nunca
+    // debe poder darse de baja a sí misma desde el equipo.
+    if (integrante.id_usuario === usuario?.id_usuario) {
+      mostrarAviso(
+        'No puedes eliminarte',
+        'La cuenta de administrador con la que estás trabajando no se puede dar de baja desde esta lista.'
+      );
+      return;
+    }
+
     confirmarAccion({
       titulo: 'Eliminar empleado',
       mensaje: `¿Seguro que deseas dar de baja a ${integrante.nombre}? Perderá el acceso a Orby.`,

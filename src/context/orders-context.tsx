@@ -26,6 +26,16 @@ import {
   type ComandaCocina,
 } from '@/lib/kitchen-network';
 import { obtener_supabase } from '@/lib/supabase';
+import {
+  MAX_CANTIDAD_POR_PRODUCTO,
+  MAX_CANTIDAD_TOTAL_PEDIDO,
+  MAX_LARGO_ESPECIFICACIONES,
+  limitar_texto,
+  limpiar_espacios,
+  validar_cantidad_producto,
+  validar_nombre_cliente,
+  validar_numero_mesa,
+} from '@/lib/validation';
 import type { Comanda, EstadoMesa, Mesa, MetodoPago, TipoServicio } from '@/types';
 
 const STORAGE_KEY_MESAS = '@orby_mesas';
@@ -38,7 +48,7 @@ const ESPERA_RECARGA_REALTIME_MS = 400;
 
 // La notificación no guarda el número de mesa: se llega por su comanda.
 const SELECT_NOTIFICACION =
-  'id_notificacion, id_comanda, id_tipo, leida, fecha_creacion, ' +
+  'id_notificacion, id_comanda, id_tipo, mensaje, leida, fecha_creacion, ' +
   'comanda(mesa(num_mesa), tipo_servicio, nombre_cliente, pagado, metodo_pago)';
 
 export type OperacionColaMesa = {
@@ -54,6 +64,7 @@ export type ResultadoOperacionMesa = {
   exito: boolean;
   enCola?: boolean;
   error?: string;
+  aviso?: string;
 };
 
 function generarUuid(): string {
@@ -97,8 +108,10 @@ function mesaDesdeFila(fila: Record<string, unknown>): Mesa {
 export type NotificacionItem = {
   id_notificacion: string;
   id_comanda: string;
+  id_tipo: number;
   num_mesa: number;
   etiqueta: string;
+  mensaje?: string | null;
   tiempo: string;
   leida: boolean;
   fecha: string;
@@ -185,7 +198,9 @@ function mapearNotificacion(fila: Record<string, unknown>): NotificacionItem {
   return {
     id_notificacion: String(fila.id_notificacion),
     id_comanda: String(fila.id_comanda),
+    id_tipo: Number(fila.id_tipo ?? 1),
     num_mesa: numMesa,
+    mensaje: (fila.mensaje as string | null) ?? null,
     etiqueta: etiquetaComanda({
       tipo_servicio: comanda?.tipo_servicio,
       num_mesa: numMesa,
@@ -253,7 +268,11 @@ export type OrdersContextType = {
   marcarComandaEntregada: (
     id_comanda: string
   ) => Promise<{ exito: boolean; entregados?: number; error?: string }>;
-  agregarAlCarrito: (producto: ItemCarrito) => void;
+  agregarAlCarrito: (producto: ItemCarrito) => {
+    agregado: boolean;
+    cantidad: number;
+    error?: string;
+  };
   quitarDelCarrito: (id_producto: string) => void;
   actualizarEspecificaciones: (id_producto: string, especificaciones: string) => void;
   limpiarCarrito: () => void;
@@ -261,6 +280,11 @@ export type OrdersContextType = {
     metodoPago?: MetodoPago;
   }) => Promise<{ exito: boolean; comanda?: Comanda; error?: string }>;
   marcarNotificacionLeida: (id_notificacion: string) => void;
+  limpiarNotificacionesLeidas: () => Promise<{
+    exito: boolean;
+    eliminadas: number;
+    error?: string;
+  }>;
 };
 
 const OrdersContext = createContext<OrdersContextType | undefined>(undefined);
@@ -855,8 +879,9 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   const crearMesa = async (
     num_mesa: number
   ): Promise<ResultadoOperacionMesa> => {
-    if (!num_mesa || isNaN(num_mesa) || num_mesa <= 0 || !Number.isInteger(num_mesa)) {
-      return { exito: false, error: 'El número de mesa debe ser un número entero mayor a 0.' };
+    const errorNumero = validar_numero_mesa(num_mesa);
+    if (errorNumero) {
+      return { exito: false, error: errorNumero };
     }
 
     const yaExiste = mesas.some((m) => m.num_mesa === num_mesa);
@@ -1125,6 +1150,39 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     if (supabase_configurado && idCafeteria) {
       try {
         const supabase = obtener_supabase();
+
+        // La copia local puede estar vieja: se pregunta al servidor si esta mesa tiene
+        // una comanda abierta justo antes de borrarla. Borrarla en cascada se llevaría
+        // también la cuenta y sus productos.
+        const { resultado: abiertas, fallo_red: falloRevision } = await con_reintentos(
+          async () =>
+            await supabase
+              .from('comanda')
+              .select('id_comanda')
+              .eq('id_mesa', id_mesa)
+              .eq('id_cafeteria', idCafeteria)
+              .eq('id_estado', 1)
+              .limit(1)
+        );
+
+        if (falloRevision) {
+          return {
+            exito: false,
+            error: 'No se pudo verificar si la mesa tiene una comanda abierta. Revisa tu conexión e inténtalo de nuevo.',
+          };
+        }
+
+        if (abiertas?.error) {
+          return { exito: false, error: traducir_error(abiertas.error) };
+        }
+
+        if ((abiertas?.data ?? []).length > 0) {
+          return {
+            exito: false,
+            error: `La mesa #${mesa.num_mesa} tiene una comanda abierta. Cóbrala o ciérrala antes de eliminarla.`,
+          };
+        }
+
         const { resultado, fallo_red } = await con_reintentos(async () => {
           return await supabase
             .from('mesa')
@@ -1313,14 +1371,44 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   };
 
   const agregarAlCarrito = (item: ItemCarrito) => {
+    const errorCantidad = validar_cantidad_producto(item.cantidad);
+    if (errorCantidad) {
+      return { agregado: false, cantidad: 0, error: errorCantidad };
+    }
+
     const existeIndex = carrito.findIndex((c) => c.id_producto === item.id_producto);
+    const cantidadActual = existeIndex > -1 ? carrito[existeIndex].cantidad : 0;
+    const cantidadNueva = Math.min(
+      MAX_CANTIDAD_POR_PRODUCTO,
+      cantidadActual + item.cantidad
+    );
+
+    if (cantidadNueva === cantidadActual) {
+      return {
+        agregado: false,
+        cantidad: cantidadActual,
+        error: `Solo se permiten ${MAX_CANTIDAD_POR_PRODUCTO} unidades de este producto.`,
+      };
+    }
+
+    const totalActual = carrito.reduce((acc, c) => acc + c.cantidad, 0);
+    if (totalActual + (cantidadNueva - cantidadActual) > MAX_CANTIDAD_TOTAL_PEDIDO) {
+      return {
+        agregado: false,
+        cantidad: cantidadActual,
+        error: `Un pedido no puede pasar de ${MAX_CANTIDAD_TOTAL_PEDIDO} productos en total.`,
+      };
+    }
+
     if (existeIndex > -1) {
       const nuevo = [...carrito];
-      nuevo[existeIndex].cantidad += item.cantidad;
+      nuevo[existeIndex] = { ...nuevo[existeIndex], cantidad: cantidadNueva };
       setCarrito(nuevo);
     } else {
-      setCarrito([...carrito, item]);
+      setCarrito([...carrito, { ...item, cantidad: cantidadNueva }]);
     }
+
+    return { agregado: true, cantidad: cantidadNueva };
   };
 
   const quitarDelCarrito = (id_producto: string) => {
@@ -1328,8 +1416,11 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   };
 
   const actualizarEspecificaciones = (id_producto: string, especificaciones: string) => {
+    const textoLimitado = limitar_texto(especificaciones, MAX_LARGO_ESPECIFICACIONES);
     setCarrito(
-      carrito.map((c) => (c.id_producto === id_producto ? { ...c, especificaciones } : c))
+      carrito.map((c) =>
+        c.id_producto === id_producto ? { ...c, especificaciones: textoLimitado } : c
+      )
     );
   };
 
@@ -1356,7 +1447,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    if (!conectado || !idUsuario) {
+    if (!conectado || !idUsuario || !idCafeteria) {
       return {
         exito: false,
         error: 'No hay una sesión real de Supabase. Vuelve a iniciar sesión.',
@@ -1364,11 +1455,29 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     }
 
     const esLlevar = tipoServicio === 'llevar';
-    const nombreLimpio = nombreCliente.trim();
+    const nombreLimpio = limpiar_espacios(nombreCliente);
     const metodoPago = opciones?.metodoPago;
 
-    if (esLlevar && !nombreLimpio) {
-      return { exito: false, error: 'Escribe el nombre del cliente para el pedido para llevar.' };
+    for (const item of carrito) {
+      const errorCantidad = validar_cantidad_producto(item.cantidad);
+      if (errorCantidad) {
+        return { exito: false, error: `${item.nombre_producto}: ${errorCantidad}` };
+      }
+    }
+
+    const totalUnidades = carrito.reduce((acc, item) => acc + item.cantidad, 0);
+    if (totalUnidades > MAX_CANTIDAD_TOTAL_PEDIDO) {
+      return {
+        exito: false,
+        error: `El pedido tiene demasiadas unidades (${totalUnidades}). El máximo es ${MAX_CANTIDAD_TOTAL_PEDIDO}.`,
+      };
+    }
+
+    if (esLlevar) {
+      const errorNombre = validar_nombre_cliente(nombreLimpio);
+      if (errorNombre) {
+        return { exito: false, error: errorNombre };
+      }
     }
 
     if (esLlevar && !metodoPago) {
@@ -1396,18 +1505,97 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
       };
     }
 
+    const supabase = obtener_supabase();
+    const idsProductos = carrito.map((item) => item.id_producto);
+
+    // Revalidación justo antes de enviar: el catálogo pudo cambiar mientras el mesero
+    // armaba el pedido. La función de la base también lo revisa, pero aquí se explica
+    // cuáles productos fallaron.
+    const { resultado: productosDb, fallo_red: falloProductos } = await con_reintentos(
+      async () =>
+        await supabase
+          .from('producto')
+          .select('id_producto, nombre_producto, estado')
+          .in('id_producto', idsProductos)
+    );
+
+    if (falloProductos) {
+      return { exito: false, error: MENSAJE_SIN_CONEXION };
+    }
+
+    if (productosDb?.error) {
+      return { exito: false, error: traducir_error(productosDb.error) };
+    }
+
+    const productosPorId = new Map(
+      ((productosDb?.data ?? []) as { id_producto: string; nombre_producto: string; estado: boolean }[]).map(
+        (p) => [p.id_producto, p]
+      )
+    );
+
+    const noDisponibles = carrito
+      .filter((item) => {
+        const producto = productosPorId.get(item.id_producto);
+        return !producto || producto.estado === false;
+      })
+      .map((item) => item.nombre_producto);
+
+    if (noDisponibles.length > 0) {
+      return {
+        exito: false,
+        error: `Estos productos ya no están disponibles: ${noDisponibles.join(', ')}. Quítalos del pedido y vuelve a intentarlo.`,
+      };
+    }
+
+    // La mesa pudo cambiar mientras se armaba el pedido. Si está apartada o inactiva,
+    // se detiene. Si está ocupada, la función agrega los productos a la cuenta abierta
+    // (así trabajan varios meseros con la misma mesa sin crear cuentas duplicadas).
+    if (!esLlevar && idMesa) {
+      const { resultado: mesaDb, fallo_red: falloMesa } = await con_reintentos(
+        async () =>
+          await supabase
+            .from('mesa')
+            .select('id_estado')
+            .eq('id_mesa', idMesa)
+            .eq('id_cafeteria', idCafeteria)
+            .maybeSingle()
+      );
+
+      if (falloMesa) {
+        return { exito: false, error: MENSAJE_SIN_CONEXION };
+      }
+
+      if (mesaDb?.error) {
+        return { exito: false, error: traducir_error(mesaDb.error) };
+      }
+
+      const filaMesa = mesaDb?.data as { id_estado: number } | null;
+      if (!filaMesa) {
+        return { exito: false, error: 'La mesa ya no existe en esta cafetería. Elige otra.' };
+      }
+
+      if (filaMesa.id_estado === 3 || filaMesa.id_estado === 4) {
+        return {
+          exito: false,
+          error: 'La mesa está apartada o inactiva. Elige otra mesa antes de enviar.',
+        };
+      }
+    }
+
     // Los IDs se generan una sola vez: si la petición se reintenta, la función reconoce
     // la comanda y los productos y no los duplica.
     const idComanda = generarUuid();
 
     try {
-      const supabase = obtener_supabase();
       // El precio lo pone la función con el catálogo del servidor, no el teléfono.
       const detalles = carrito.map((item) => ({
         id_detalle: generarUuid(),
         id_producto: item.id_producto,
         cantidad: item.cantidad,
-        especificaciones: (item.especificaciones || '').trim(),
+        especificaciones: limitar_texto(
+          (item.especificaciones || '').trim(),
+          MAX_LARGO_ESPECIFICACIONES
+        ),
         tiempo_estimado: 15,
         id_estado: 2, // 2 = en preparación en detalle_comanda
       }));
@@ -1479,6 +1667,67 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Limpia solo las notificaciones que el usuario ya leyó. Las pendientes se conservan.
+  // El borrado queda limitado por RLS a las notificaciones propias de su cafetería.
+  const limpiarNotificacionesLeidas = useCallback(async (): Promise<{
+    exito: boolean;
+    eliminadas: number;
+    error?: string;
+  }> => {
+    if (!conectado || !idUsuario || !idCafeteria) {
+      return { exito: false, eliminadas: 0, error: MENSAJE_SIN_CONEXION };
+    }
+
+    const leidasLocales = notificaciones.filter((n) => n.leida);
+    if (leidasLocales.length === 0) {
+      return { exito: true, eliminadas: 0 };
+    }
+
+    try {
+      const { resultado, fallo_red } = await con_reintentos(async () =>
+        await obtener_supabase()
+          .from('notificacion')
+          .delete({ count: 'exact' })
+          .select('id_notificacion')
+          .eq('id_usuario', idUsuario)
+          .eq('id_cafeteria', idCafeteria)
+          .eq('leida', true)
+      );
+
+      if (fallo_red) {
+        return { exito: false, eliminadas: 0, error: MENSAJE_SIN_CONEXION };
+      }
+
+      if (resultado?.error) {
+        console.warn('Error al limpiar notificaciones leídas:', resultado.error);
+        return {
+          exito: false,
+          eliminadas: 0,
+          error: 'No se pudieron limpiar las notificaciones. Intenta de nuevo.',
+        };
+      }
+
+      // Borrar sin error pero sin filas suele significar que RLS bloqueó la operación
+      // (por ejemplo, si la migración de la política DELETE aún no se aplicó).
+      const filasEliminadas = (resultado?.data ?? []) as { id_notificacion: string }[];
+      const idsEliminados = new Set(filasEliminadas.map((fila) => fila.id_notificacion));
+
+      if (idsEliminados.size === 0) {
+        return {
+          exito: false,
+          eliminadas: 0,
+          error: 'No se encontraron notificaciones leídas para limpiar. Intenta de nuevo.',
+        };
+      }
+
+      setNotificaciones((prev) => prev.filter((n) => !idsEliminados.has(n.id_notificacion)));
+      return { exito: true, eliminadas: idsEliminados.size };
+    } catch (e) {
+      console.warn('Excepción al limpiar notificaciones leídas:', e);
+      return { exito: false, eliminadas: 0, error: MENSAJE_SIN_CONEXION };
+    }
+  }, [conectado, idUsuario, idCafeteria, notificaciones]);
+
   return (
     <OrdersContext.Provider
       value={{
@@ -1511,6 +1760,7 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
         limpiarCarrito,
         enviarComandaACocina,
         marcarNotificacionLeida,
+        limpiarNotificacionesLeidas,
       }}
     >
       {children}

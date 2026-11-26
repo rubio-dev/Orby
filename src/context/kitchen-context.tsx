@@ -25,6 +25,7 @@ import {
   aplicarColaSobreComandas,
   contarCambiosPendientes,
   crearOperacionesCambioEstado,
+  crearOperacionesCancelarProducto,
   crearOperacionesCompletarComanda,
   crearOperacionTiempoEstimado,
   ESTADO_COMANDA,
@@ -68,11 +69,17 @@ function esUuidValido(id?: string | null): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 }
 
-// Medianoche de hoy en la hora del teléfono; el historial muestra lo de "hoy" del local
-function inicioDeHoyIso() {
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  return hoy.toISOString();
+// La cafetería trabaja por turnos, no por día calendario. El turno empieza a las 6:00:
+// si son las 2:00 de la madrugada, el historial sigue mostrando las cuentas de ayer.
+const HORA_INICIO_TURNO = 6;
+function inicioDeTurnoIso() {
+  const ahora = new Date();
+  const inicio = new Date(ahora);
+  if (ahora.getHours() < HORA_INICIO_TURNO) {
+    inicio.setDate(inicio.getDate() - 1);
+  }
+  inicio.setHours(HORA_INICIO_TURNO, 0, 0, 0);
+  return inicio.toISOString();
 }
 
 // AYUDAS PARA LAS PANTALLAS
@@ -129,6 +136,11 @@ type KitchenContextType = {
   recargar: (opciones?: { manual?: boolean }) => Promise<void>;
   cambiarEstadoProducto: (id_comanda: string, id_detalle: string, estado: number) => Promise<void>;
   cambiarTiempoEstimado: (id_comanda: string, id_detalle: string, minutos: number) => Promise<void>;
+  cancelarProducto: (
+    id_comanda: string,
+    id_detalle: string,
+    motivo?: string
+  ) => Promise<{ cancelado: boolean; error?: string }>;
   completarComanda: (id_comanda: string) => Promise<{ marcados: number }>;
 };
 
@@ -213,16 +225,22 @@ export function KitchenProvider({ children }: { children: ReactNode }) {
               .eq('id_estado', ESTADO_COMANDA.abierta)
               .order('fecha_creacion', { ascending: true })
         ),
-        // No hay fecha de cierre en la tabla: "de hoy" = cuentas abiertas hoy que ya se cerraron
+        // No hay una columna de cierre: se toma la última marca disponible (pago, entrega
+        // o creación) y se compara con el inicio del turno. Así las cuentas que cruzan
+        // medianoche no desaparecen del historial a las 00:00.
         conRed(
-          async () =>
-            await supabase
+          async () => {
+            const inicioTurno = inicioDeTurnoIso();
+            return await supabase
               .from('comanda')
               .select(SELECT_COMANDA_COCINA)
               .eq('id_cafeteria', id)
               .eq('id_estado', ESTADO_COMANDA.cerrada)
-              .gte('fecha_creacion', inicioDeHoyIso())
-              .order('fecha_creacion', { ascending: false })
+              .or(
+                `fecha_pago.gte.${inicioTurno},fecha_entrega.gte.${inicioTurno},fecha_creacion.gte.${inicioTurno}`
+              )
+              .order('fecha_creacion', { ascending: false });
+          }
         ),
       ]);
 
@@ -563,6 +581,35 @@ export function KitchenProvider({ children }: { children: ReactNode }) {
     [buscar, encolar]
   );
 
+  const cancelarProducto = useCallback(
+    async (id_comanda: string, id_detalle: string, motivo?: string) => {
+      const { comanda, detalle } = buscar(id_comanda, id_detalle);
+      if (!comanda || !detalle) {
+        return { cancelado: false, error: 'El producto ya no está en esta comanda.' };
+      }
+
+      if (detalle.id_estado === ESTADO_DETALLE.entregado) {
+        return {
+          cancelado: false,
+          error: 'El producto ya se entregó al cliente y no se puede cancelar.',
+        };
+      }
+
+      if (detalle.id_estado === ESTADO_DETALLE.cancelado) {
+        return { cancelado: false, error: 'Ese producto ya estaba cancelado.' };
+      }
+
+      const operaciones = crearOperacionesCancelarProducto(comanda, detalle, motivo);
+      if (operaciones.length === 0) {
+        return { cancelado: false, error: 'No se pudo preparar la cancelación.' };
+      }
+
+      await encolar(operaciones);
+      return { cancelado: true };
+    },
+    [buscar, encolar]
+  );
+
   const completarComanda = useCallback(
     async (id_comanda: string) => {
       const { comanda } = buscar(id_comanda);
@@ -587,6 +634,7 @@ export function KitchenProvider({ children }: { children: ReactNode }) {
         recargar,
         cambiarEstadoProducto,
         cambiarTiempoEstimado,
+        cancelarProducto,
         completarComanda,
       }}
     >

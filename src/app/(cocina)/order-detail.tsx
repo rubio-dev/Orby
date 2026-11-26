@@ -16,7 +16,7 @@ import { CustomButton } from '@/components/CustomButton';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { estaEnEspera, useKitchen } from '@/context/kitchen-context';
 import { AvisoSinConexion } from '@/kitchen/AvisoSinConexion';
-import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
+import { confirmarAccion, mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
 import { ESTADO_COMANDA, ESTADO_DETALLE, etiquetaComanda, type DetalleCocina } from '@/lib/kitchen-network';
 import { espaciado, fuentes, radios, useTema } from '@/theme';
 
@@ -31,12 +31,14 @@ export default function CocinaOrderDetailScreen() {
     sinConexion,
     cambiarEstadoProducto,
     cambiarTiempoEstimado,
+    cancelarProducto,
     completarComanda,
   } = useKitchen();
 
   // Se guarda solo el id: así el modal siempre muestra el tiempo actual del producto,
   // aunque cambie mientras está abierto (por ejemplo, por Realtime)
   const [idDetalleParaTiempo, setIdDetalleParaTiempo] = useState<string | null>(null);
+  const [cancelandoId, setCancelandoId] = useState<string | null>(null);
 
   // Se busca en las abiertas y, si viene del historial, en las cerradas de hoy.
   // Ya no se usa la primera comanda como respaldo: mostraría los productos de otra mesa.
@@ -104,7 +106,7 @@ export default function CocinaOrderDetailScreen() {
             mostrarAviso(
               sinConexion ? 'Guardado sin conexión' : '¡Orden lista!',
               sinConexion
-                ? `Los productos de ${etiqueta} quedaron listos en este teléfono. El aviso al mesero se enviará al volver la conexión.`
+                ? `Los productos de ${etiqueta} quedaron listos en este teléfono, pero el mesero NO recibirá la notificación en tiempo real hasta que vuelva la red. El aviso se enviará automáticamente al reconectar.`
                 : `Se avisó al mesero que el pedido de ${etiqueta} está listo para servirse.`,
               [{ text: 'Aceptar', onPress: () => router.replace('/(cocina)/orders') }]
             );
@@ -112,6 +114,44 @@ export default function CocinaOrderDetailScreen() {
         },
       ]
     );
+  };
+
+  // Cancelar un solo platillo cuando la cocina se queda sin insumos. La base descuenta
+  // su importe del total y crea el aviso para el mesero en la misma transacción.
+  const handleCancelarProducto = (detalle: DetalleCocina) => {
+    if (cancelandoId) return;
+
+    confirmarAccion({
+      titulo: 'Cancelar producto',
+      mensaje: `¿Cancelar “${detalle.nombre_producto}” de ${etiqueta} por falta de insumos?\n\nSe avisará al mesero y se descontará del total de la cuenta.`,
+      textoConfirmar: 'Sí, cancelar',
+      textoCancelar: 'Volver',
+      destructivo: true,
+      alConfirmar: async () => {
+        setCancelandoId(detalle.id_detalle);
+        try {
+          const resultado = await cancelarProducto(
+            comanda.id_comanda,
+            detalle.id_detalle,
+            'falta de insumos en cocina'
+          );
+
+          if (!resultado.cancelado) {
+            mostrarAviso('No se canceló', resultado.error ?? 'Inténtalo de nuevo.');
+            return;
+          }
+
+          mostrarAviso(
+            sinConexion ? 'Cancelación guardada' : 'Producto cancelado',
+            sinConexion
+              ? `“${detalle.nombre_producto}” se canceló en este teléfono. El aviso y el ajuste del total se enviarán al volver la conexión; el mesero no lo verá en tiempo real.`
+              : `“${detalle.nombre_producto}” se canceló y se avisó al mesero. El total de la cuenta ya no incluye ese platillo.`
+          );
+        } finally {
+          setCancelandoId(null);
+        }
+      },
+    });
   };
 
   const opcionesTiempo = [5, 10, 15, 20, 25, 30];
@@ -259,6 +299,38 @@ export default function CocinaOrderDetailScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
+
+              {estaListo && sePuedeCambiar && (
+                <Text style={[estilos.hintRevertir, { color: colores.text_muted }]}>
+                  ¿Fue un toque accidental? Toca “En preparación” para revertirlo.
+                </Text>
+              )}
+
+              {sePuedeCambiar && (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  disabled={cancelandoId === detalle.id_detalle}
+                  onPress={() => handleCancelarProducto(detalle)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Cancelar ${detalle.nombre_producto} por falta de insumos`}
+                  accessibilityState={{ disabled: cancelandoId === detalle.id_detalle }}
+                  style={[
+                    estilos.botonCancelarProducto,
+                    { borderColor: colores.danger_border, backgroundColor: colores.danger_soft },
+                  ]}
+                >
+                  {cancelandoId === detalle.id_detalle ? (
+                    <ActivityIndicator size="small" color={colores.danger} />
+                  ) : (
+                    <>
+                      <Ionicons name="close-circle-outline" size={18} color={colores.danger} />
+                      <Text style={[estilos.textoCancelarProducto, { color: colores.danger }]}>
+                        Cancelar por falta de insumos
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
             </View>
           );
         })}
@@ -455,6 +527,28 @@ const estilos = StyleSheet.create({
   textoBotonEstado: {
     fontFamily: fuentes.bold,
     fontSize: 15,
+  },
+  hintRevertir: {
+    fontFamily: fuentes.regular,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: espaciado.xs,
+    textAlign: 'center',
+  },
+  botonCancelarProducto: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: radios.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: espaciado.xs,
+    marginTop: espaciado.sm,
+    paddingHorizontal: espaciado.sm,
+  },
+  textoCancelarProducto: {
+    fontFamily: fuentes.semibold,
+    fontSize: 13,
   },
   tarjetaEspecificaciones: {
     borderWidth: 1.5,

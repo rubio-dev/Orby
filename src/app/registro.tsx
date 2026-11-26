@@ -8,7 +8,19 @@ import { CustomButton } from '@/components/CustomButton'; // Botón del diseño 
 import { CustomInput } from '@/components/CustomInput'; // Campo con etiqueta y ojito para contraseña
 import { OrbyLogo } from '@/components/OrbyLogo'; // Logo de la taza en órbita
 import { useAuth } from '@/context/auth-context'; // Registro del administrador
-import { LARGO_MINIMO_CONTRASENA, validar_contrasena, validar_correo } from '@/lib/auth'; // Validaciones
+import {
+  LARGO_MAXIMO_CONTRASENA,
+  LARGO_MINIMO_CONTRASENA,
+  validar_contrasena,
+  validar_correo,
+} from '@/lib/auth'; // Validaciones
+import {
+  MAX_LARGO_NOMBRE,
+  MAX_LARGO_NOMBRE_CAFETERIA,
+  limpiar_espacios,
+  validar_nombre_cafeteria,
+  validar_nombre_persona,
+} from '@/lib/validation';
 import { espaciado, fuentes, useTema } from '@/theme'; // Tema activo y tokens
 
 // TIPOS
@@ -42,8 +54,9 @@ export default function RegistroScreen() {
   const validar = (): ErroresFormulario => {
     const encontrados: ErroresFormulario = {};
 
-    if (nombre.trim().length < 3) {
-      encontrados.nombre = 'Escribe tu nombre completo.';
+    const errorNombre = validar_nombre_persona(nombre);
+    if (errorNombre) {
+      encontrados.nombre = errorNombre;
     }
 
     if (!validar_correo(correo)) {
@@ -55,8 +68,9 @@ export default function RegistroScreen() {
       encontrados.contrasena = errorContrasena;
     }
 
-    if (nombreCafeteria.trim().length < 2) {
-      encontrados.nombre_cafeteria = 'Escribe el nombre de tu cafetería.';
+    const errorCafeteria = validar_nombre_cafeteria(nombreCafeteria);
+    if (errorCafeteria) {
+      encontrados.nombre_cafeteria = errorCafeteria;
     }
 
     return encontrados;
@@ -76,9 +90,9 @@ export default function RegistroScreen() {
 
     setCargando(true);
     const resultado = await registrarAdministrador({
-      nombre,
-      nombreCafeteria,
-      correo,
+      nombre: limpiar_espacios(nombre),
+      nombreCafeteria: limpiar_espacios(nombreCafeteria),
+      correo: correo.trim().toLowerCase(),
       contrasena,
     });
     setCargando(false);
@@ -123,6 +137,7 @@ export default function RegistroScreen() {
               placeholder="Ej. Ana López"
               autoCapitalize="words"
               autoComplete="name"
+              maxLength={MAX_LARGO_NOMBRE}
               value={nombre}
               onChangeText={setNombre}
               error={errores.nombre}
@@ -137,6 +152,7 @@ export default function RegistroScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               autoComplete="email"
+              maxLength={254}
               value={correo}
               onChangeText={setCorreo}
               error={errores.correo}
@@ -146,10 +162,11 @@ export default function RegistroScreen() {
             <CustomInput
               label="Contraseña"
               obligatorio
-              placeholder={`Mínimo ${LARGO_MINIMO_CONTRASENA} caracteres`}
+              placeholder={`Mínimo ${LARGO_MINIMO_CONTRASENA}, con letra y número`}
               esContrasena
               autoCapitalize="none"
               autoComplete="new-password"
+              maxLength={LARGO_MAXIMO_CONTRASENA}
               value={contrasena}
               onChangeText={setContrasena}
               error={errores.contrasena}
@@ -163,6 +180,7 @@ export default function RegistroScreen() {
               esContrasena
               autoCapitalize="none"
               autoComplete="new-password"
+              maxLength={LARGO_MAXIMO_CONTRASENA}
               value={confirmacion}
               onChangeText={setConfirmacion}
               variante="relleno"
@@ -176,6 +194,7 @@ export default function RegistroScreen() {
               obligatorio
               placeholder="Ej. Café Orbital"
               autoCapitalize="words"
+              maxLength={MAX_LARGO_NOMBRE_CAFETERIA}
               value={nombreCafeteria}
               onChangeText={setNombreCafeteria}
               error={errores.nombre_cafeteria}

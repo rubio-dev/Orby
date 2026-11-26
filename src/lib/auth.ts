@@ -4,8 +4,10 @@ import { supabase_llave, supabase_url } from '@/lib/env'; // Datos de conexión 
 import { obtener_supabase } from '@/lib/supabase';
 
 // CONSTANTES
-// El mockup pide 8 caracteres; supabase/config.toml permite 6, así que 8 cumple con ambos
+// El mockup pide 8 caracteres; supabase/config.toml permite 6, así que 8 cumple con ambos.
+// 72 es el máximo que bcrypt (el hash de Supabase Auth) aprovecha por completo.
 export const LARGO_MINIMO_CONTRASENA = 8;
+export const LARGO_MAXIMO_CONTRASENA = 72;
 export const TIMEOUT_CONEXION_MS = 7000;
 export const MAX_INTENTOS_CONEXION = 3;
 export const MENSAJE_SIN_CONEXION =
@@ -20,10 +22,37 @@ export function validar_correo(correo: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim());
 }
 
-// Revisa la contraseña y su confirmación; devuelve el mensaje de error o null si está bien
-export function validar_contrasena(contrasena: string, confirmacion: string) {
+// Revisa la complejidad mínima de una contraseña (no la confirmación).
+// Al menos 8 caracteres, una letra y un número. Así se evitan claves como "12345678".
+export function validar_fortaleza_contrasena(contrasena: string) {
   if (contrasena.length < LARGO_MINIMO_CONTRASENA) {
     return `La contraseña debe tener al menos ${LARGO_MINIMO_CONTRASENA} caracteres.`;
+  }
+
+  if (contrasena.length > LARGO_MAXIMO_CONTRASENA) {
+    return `La contraseña no puede pasar de ${LARGO_MAXIMO_CONTRASENA} caracteres.`;
+  }
+
+  if (contrasena !== contrasena.trim()) {
+    return 'La contraseña no puede empezar ni terminar con espacios.';
+  }
+
+  if (!/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(contrasena)) {
+    return 'La contraseña debe incluir al menos una letra.';
+  }
+
+  if (!/\d/.test(contrasena)) {
+    return 'La contraseña debe incluir al menos un número.';
+  }
+
+  return null;
+}
+
+// Revisa la contraseña y su confirmación; devuelve el mensaje de error o null si está bien
+export function validar_contrasena(contrasena: string, confirmacion: string) {
+  const errorFortaleza = validar_fortaleza_contrasena(contrasena);
+  if (errorFortaleza) {
+    return errorFortaleza;
   }
 
   if (contrasena !== confirmacion) {
@@ -60,7 +89,7 @@ export function traducir_error(error: ErrorSupabase) {
   }
 
   if (codigo === 'weak_password' || mensaje.includes('password should be at least')) {
-    return 'La contraseña es muy débil. Usa al menos 8 caracteres.';
+    return 'La contraseña es muy débil. Usa al menos 8 caracteres, con una letra y un número.';
   }
 
   if (

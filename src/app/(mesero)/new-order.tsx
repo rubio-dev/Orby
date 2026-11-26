@@ -20,6 +20,7 @@ import { useOrders } from '@/context/orders-context';
 import { espaciado, fuentes, radios, tipografia, useTema } from '@/theme';
 import type { Producto } from '@/types';
 import { mostrarAviso } from '@/lib/confirm'; // Avisos con el diseño de Orby (reemplaza Alert.alert, que no funciona en web)
+import { MAX_LARGO_NOMBRE_CLIENTE, validar_nombre_cliente } from '@/lib/validation';
 
 export default function MeseroNewOrderScreen() {
   const router = useRouter();
@@ -51,7 +52,7 @@ export default function MeseroNewOrderScreen() {
   const cantidadTotalEnCarrito = carrito.reduce((acc, item) => acc + item.cantidad, 0);
 
   const handleAgregarProducto = (p: Producto) => {
-    agregarAlCarrito({
+    const resultado = agregarAlCarrito({
       id_producto: p.id_producto,
       nombre_producto: p.nombre_producto,
       descripcion: p.descripcion,
@@ -60,7 +61,16 @@ export default function MeseroNewOrderScreen() {
       especificaciones: '',
       imagen_url: p.imagen_url,
     });
-    mostrarAviso('Agregado', `${p.nombre_producto} se agregó al pedido.`);
+
+    if (!resultado.agregado) {
+      mostrarAviso('No se agregó', resultado.error ?? 'Revisa la cantidad del pedido.');
+      return;
+    }
+
+    mostrarAviso(
+      'Agregado',
+      `${p.nombre_producto} se agregó al pedido (${resultado.cantidad} en el carrito).`
+    );
   };
 
   const handleIrAlResumen = () => {
@@ -68,9 +78,12 @@ export default function MeseroNewOrderScreen() {
       mostrarAviso('Pedido vacío', 'Selecciona al menos un producto para continuar.');
       return;
     }
-    if (tipoServicio === 'llevar' && !nombreCliente.trim()) {
-      mostrarAviso('Falta el nombre', 'Escribe el nombre del cliente para el pedido para llevar.');
-      return;
+    if (tipoServicio === 'llevar') {
+      const errorNombre = validar_nombre_cliente(nombreCliente);
+      if (errorNombre) {
+        mostrarAviso('Revisa el nombre', errorNombre);
+        return;
+      }
     }
     if (tipoServicio === 'mesa' && mesaSeleccionada <= 0) {
       mostrarAviso('Selecciona una mesa', 'Elige la mesa antes de revisar el pedido.');
@@ -158,6 +171,7 @@ export default function MeseroNewOrderScreen() {
             onChangeText={actualizarNombreCliente}
             obligatorio
             autoCapitalize="words"
+            maxLength={MAX_LARGO_NOMBRE_CLIENTE}
             accessibilityHint="Se usa para llamar al cliente cuando el pedido esté listo"
           />
         ) : (
