@@ -278,7 +278,13 @@ export type OrdersContextType = {
   limpiarCarrito: () => void;
   enviarComandaACocina: (opciones?: {
     metodoPago?: MetodoPago;
-  }) => Promise<{ exito: boolean; comanda?: Comanda; error?: string }>;
+    permitirMesaOcupada?: boolean;
+  }) => Promise<{
+    exito: boolean;
+    comanda?: Comanda;
+    error?: string;
+    requiereConfirmacionMesaOcupada?: boolean;
+  }>;
   marcarNotificacionLeida: (id_notificacion: string) => void;
   limpiarNotificacionesLeidas: () => Promise<{
     exito: boolean;
@@ -1434,7 +1440,10 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
   // Con sesión real la base hace todo en una transacción (crear o reutilizar la cuenta
   // abierta de la mesa, guardar los productos y marcar la mesa como ocupada). Así la
   // cocina recibe la comanda completa por Realtime y no queda una cabecera sin productos.
-  const enviarComandaACocina = async (opciones?: { metodoPago?: MetodoPago }) => {
+  const enviarComandaACocina = async (opciones?: {
+    metodoPago?: MetodoPago;
+    permitirMesaOcupada?: boolean;
+  }) => {
     if (carrito.length === 0) {
       return { exito: false, error: 'El carrito está vacío' };
     }
@@ -1506,6 +1515,36 @@ export function OrdersProvider({ children }: { children: ReactNode }) {
     }
 
     const supabase = obtener_supabase();
+
+    if (!esLlevar && supabase_configurado && idCafeteria && !opciones?.permitirMesaOcupada && mesaElegida) {
+      try {
+        const { data: mesaRemota, error: errorMesaRemota } = await supabase
+          .from('mesa')
+          .select('id_estado')
+          .eq('id_mesa', mesaElegida.id_mesa)
+          .maybeSingle();
+
+        if (!errorMesaRemota && mesaRemota) {
+          if (mesaRemota.id_estado === 3 || mesaRemota.id_estado === 4) {
+            return {
+              exito: false,
+              error: 'La mesa ya no está disponible (apartada o inactiva).',
+            };
+          }
+
+          if (mesaElegida.id_estado === 1 && mesaRemota.id_estado === 2) {
+            return {
+              exito: false,
+              requiereConfirmacionMesaOcupada: true,
+              error: 'La mesa acaba de ser ocupada por otro pedido.',
+            };
+          }
+        }
+      } catch {
+        // Si falla por red, no bloqueamos el flujo offline.
+      }
+    }
+
     const idsProductos = carrito.map((item) => item.id_producto);
 
     // Revalidación justo antes de enviar: el catálogo pudo cambiar mientras el mesero

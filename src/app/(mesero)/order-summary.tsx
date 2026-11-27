@@ -19,7 +19,7 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { VoucherModal } from '@/components/VoucherModal';
 import { useAuth } from '@/context/auth-context';
 import { useOrders } from '@/context/orders-context';
-import { mostrarAviso } from '@/lib/confirm';
+import { confirmarAccion, mostrarAviso } from '@/lib/confirm';
 import { obtenerNombreCafeteria } from '@/lib/pdf-report';
 import { MAX_LARGO_ESPECIFICACIONES, validar_nombre_cliente } from '@/lib/validation';
 import { espaciado, fuentes, radios, useTema } from '@/theme';
@@ -63,6 +63,58 @@ export default function MeseroOrderSummaryScreen() {
   const esLlevar = tipoServicio === 'llevar';
   const tituloPedido = esLlevar ? 'Para llevar' : `Mesa ${mesaSeleccionada}`;
 
+  const procesarResultadoEnvio = (
+    resultado: Awaited<ReturnType<typeof enviarComandaACocina>>,
+    nombrePedido: string
+  ) => {
+    if (resultado.exito) {
+      if (esLlevar) {
+        if (resultado.comanda) {
+          setVoucher(resultado.comanda);
+        } else {
+          mostrarAviso(
+            '¡Pedido para llevar enviado!',
+            `El pedido de ${nombrePedido} por un total de $${total} fue cobrado y enviado a la cocina.`,
+            [{ text: 'Aceptar', onPress: () => router.replace('/(mesero)') }]
+          );
+        }
+        return;
+      }
+
+      mostrarAviso(
+        '¡Comanda enviada!',
+        `El pedido de la Mesa ${mesaSeleccionada} por un total de $${total} fue enviado exitosamente a la cocina.`,
+        [
+          {
+            text: 'Ver mesas',
+            onPress: () => router.replace('/(mesero)/tables'),
+          },
+        ]
+      );
+      return;
+    }
+
+    if (resultado.requiereConfirmacionMesaOcupada) {
+      confirmarAccion({
+        titulo: 'Mesa recién ocupada',
+        mensaje: `La mesa #${mesaSeleccionada} acaba de ser ocupada por otro pedido. ¿Deseas agregar estos productos a su cuenta abierta?`,
+        textoConfirmar: 'Agregar a cuenta',
+        alConfirmar: async () => {
+          setCargando(true);
+          const reintento = await enviarComandaACocina({
+            metodoPago: esLlevar ? metodoPago ?? undefined : undefined,
+            permitirMesaOcupada: true,
+          });
+          setCargando(false);
+          procesarResultadoEnvio(reintento, nombrePedido);
+        },
+      });
+      return;
+    }
+
+    mostrarAviso('Error', resultado.error ?? 'No se pudo enviar la comanda.');
+  };
+
   const handleEnviarCocina = async () => {
     if (carrito.length === 0) {
       mostrarAviso('Sin productos', 'El pedido no contiene productos.');
@@ -90,33 +142,7 @@ export default function MeseroOrderSummaryScreen() {
     });
     setCargando(false);
 
-    if (resultado.exito) {
-      if (esLlevar) {
-        if (resultado.comanda) {
-          setVoucher(resultado.comanda);
-        } else {
-          mostrarAviso(
-            '¡Pedido para llevar enviado!',
-            `El pedido de ${nombrePedido} por un total de $${total} fue cobrado y enviado a la cocina.`,
-            [{ text: 'Aceptar', onPress: () => router.replace('/(mesero)') }]
-          );
-        }
-        return;
-      }
-
-      mostrarAviso(
-        '¡Comanda enviada!',
-        `El pedido de la Mesa ${mesaSeleccionada} por un total de $${total} fue enviado exitosamente a la cocina.`,
-        [
-          {
-            text: 'Ver mesas',
-            onPress: () => router.replace('/(mesero)/tables'),
-          },
-        ]
-      );
-    } else {
-      mostrarAviso('Error', resultado.error ?? 'No se pudo enviar la comanda.');
-    }
+    procesarResultadoEnvio(resultado, nombrePedido);
   };
 
   return (
